@@ -67,9 +67,9 @@ static inline bool quantize(const ggml_tensor *t, ggml_type new_type, conv_buf &
     return true;
 }
 
-int berts_model_quantize(const char *input_path,
-                         const char *output_path,
-                         ggml_type qtype) {
+bool berts_model_quantize(const char *input_path,
+                          const char *output_path,
+                          ggml_type qtype) {
     log::info("start quantization");
 
     const auto type_str = gguf::type_to_str(qtype);
@@ -77,7 +77,7 @@ int berts_model_quantize(const char *input_path,
     berts_ctx ctx{berts_load_from_file(input_path)};
     if (!ctx) {
         log::error(berts::fmt("fail to load model: {}", input_path));
-        return 1;
+        return false;
     }
 
     log::info(berts::fmt("model loaded: {}", input_path));
@@ -94,7 +94,7 @@ int berts_model_quantize(const char *input_path,
     std::ofstream out{output_path, std::ios::binary};
     if (!out) {
         log::error(berts::fmt("failed to open {}", output_path));
-        return 1;
+        return false;
     }
 
     const int n = gguf_get_n_tensors(gguf_src);
@@ -146,7 +146,7 @@ int berts_model_quantize(const char *input_path,
         if (q) {
             // do quantize
             if (!quantize(t, qtype, buffer, &size_in_bytes)) {
-                return 1;
+                return false;
             }
             new_type = qtype;
             data = buffer.q();

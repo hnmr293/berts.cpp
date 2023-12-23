@@ -5,6 +5,7 @@
 //   C API
 //
 
+#include <stdbool.h>
 #include <stdint.h>
 #include <stdio.h>
 #include "ggml/ggml.h"
@@ -116,13 +117,9 @@ ggml_tensor *berts_eval(berts_context *ctx,
 //
 
 /// @brief quantize {input_path} model to {output_path}
-/// @param input_path 
-/// @param output_path 
-/// @param qtype 
-/// @return 0 if succeeded, otherwize non-0 value
-int berts_model_quantize(const char *input_path,
-                         const char *output_path,
-                         ggml_type qtype);
+bool berts_model_quantize(const char *input_path,
+                          const char *output_path,
+                          ggml_type qtype);
 
 #ifdef __cplusplus
 }
