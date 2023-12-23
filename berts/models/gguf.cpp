@@ -247,6 +247,9 @@ berts_context *load_from_file(const std::string &path) {
         const auto n_tensors = gguf_get_n_tensors(gguf);
         for (int i = 0; i < n_tensors; ++i) {
             const auto tensor_name = gguf_get_tensor_name(gguf, i);
+            log::when(log::log_level::debug, [=]() {
+                log::debug(berts::fmt("  load {} {}", i, tensor_name));
+            });
             auto t = ggml_get_tensor(ggml_meta, tensor_name);
             auto x = ggml_dup_tensor(ggml, t);
             ggml_set_name(x, tensor_name);
@@ -267,6 +270,23 @@ berts_context *load_from_file(const std::string &path) {
     hparams.max_tokens = gguf_u32(gguf, BERTS_KEY_HPARAM_MAX_TOKENS);
     hparams.intermediate_dim = gguf_u32(gguf, BERTS_KEY_HPARAM_INTERMEDIATE_DIM);
     hparams.hidden_act = static_cast<hidden_act>(gguf_u32(gguf, BERTS_KEY_HPARAM_HIDDEN_ACT));
+
+    log::when(log::log_level::info, [&hparams]() {
+        log::info(berts::fmt(
+            "hparams\n"
+            "  arch: {}\n"
+            "  vocab_size: {}\n"
+            "  hidden_dim: {}\n"
+            "  n_layers: {}\n"
+            "  attn_heads: {}\n"
+            "  max_tokens: {}\n"
+            "  intermediate_dim: {}\n"
+            "  hidden_act: {}",
+            (int)hparams.architecture, hparams.vocab_size, hparams.hidden_dim,
+            hparams.n_layers, hparams.attn_heads, hparams.max_tokens,
+            hparams.intermediate_dim, (int)hparams.hidden_act
+        ));
+    });
 
     const auto type = static_cast<ggml_type>(gguf_u32(gguf, "general.file_type"));
 

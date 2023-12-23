@@ -17,10 +17,6 @@ endif
 #
 # optimization
 #
-MK_CFLAGS += -Ofast -march=native -mtune=native
-MK_CXXFLAGS += -Ofast -march=native -mtune=native
-#NVCCFLAGS += -O3
-
 ifdef BERTS_DEBUG
 MK_CPPFLAGS += -DDEBUG -DBERTS_DEBUG
 MK_CFLAGS += -O0 -g
@@ -28,6 +24,9 @@ MK_CXXFLAGS += -O0 -g
 MK_LDFLAGS += -g
 else
 MK_CPPFLAGS += -DNDEBUG
+MK_CFLAGS += -Ofast -g -march=native -mtune=native
+MK_CXXFLAGS += -Ofast -g -march=native -mtune=native
+#NVCCFLAGS += -O3
 endif
 
 #

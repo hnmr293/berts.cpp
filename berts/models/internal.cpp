@@ -22,7 +22,7 @@ struct berts_context {
     double eps;
     gguf_context *gguf;
     ggml_context *ctx;
-    berts_context(internal::hparams hparams, internal::model *model, gguf_context *gguf, ggml_context *ctx)
+    berts_context(const internal::hparams &hparams, internal::model *model, gguf_context *gguf, ggml_context *ctx)
         : hparams(hparams)
         , vocab()
         , model(model)
@@ -40,7 +40,7 @@ struct berts_context {
 
 namespace berts::internal {
 
-berts_context *new_context(hparams hparams, model *model, gguf_context *gguf, ggml_context *ctx) {
+berts_context *new_context(const hparams &hparams, model *model, gguf_context *gguf, ggml_context *ctx) {
     return new berts_context{hparams, model, gguf, ctx};
 }
 
