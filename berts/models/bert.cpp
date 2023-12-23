@@ -124,13 +124,31 @@ bool model::load_vocab(berts_context *ctx) {
     auto vocab_size = ggml_get_tensor(ggml, BERTS_KEY_BERT_VOCAB_SIZE);
     auto vocab_data = ggml_get_tensor(ggml, BERTS_KEY_BERT_VOCAB_DATA);
 
-    GGML_ASSERT(vocab_size && "key vocab_size is not found");
-    GGML_ASSERT(vocab_data && "key vocab_data is not found");
-    GGML_ASSERT(vocab_size->n_dims == 1);
-    GGML_ASSERT(vocab_data->n_dims == 1);
-    GGML_ASSERT(vocab_size->type == GGML_TYPE_I32);
-    GGML_ASSERT(vocab_data->type == GGML_TYPE_I8);
+    if (!vocab_size) {
+        log::error(berts::fmt("key {} is not found", BERTS_KEY_BERT_VOCAB_SIZE));
+        return false;
+    }
 
+    if (!vocab_data) {
+        log::error(berts::fmt("key {} is not found", BERTS_KEY_BERT_VOCAB_DATA));
+        return false;
+    }
+
+    if (vocab_size->n_dims != 1 || vocab_data->n_dims != 1) {
+        log::error(berts::fmt("invalid shape: vocab_size={}, vocab_data={}", vocab_size->n_dims, vocab_data->n_dims));
+        return false;
+    }
+
+    if (vocab_size->type != GGML_TYPE_I32) {
+        log::error(berts::fmt("invalid type of vocab_size: {}", (int)vocab_size->type));
+        return false;
+    }
+
+    if (vocab_data->type != GGML_TYPE_I8) {
+        log::error(berts::fmt("invalid type of vocab_data: {}", (int)vocab_data->type));
+        return false;
+    }
+    
     const int64_t vocab_count = vocab_size->ne[0];
     auto token_lengths = static_cast<const int32_t *>(vocab_size->data);
     const auto data = static_cast<const char *>(vocab_data->data);
@@ -143,7 +161,10 @@ bool model::load_vocab(berts_context *ctx) {
         internal::add_token(ctx, token);
     }
 
-    GGML_ASSERT(p == vocab_data->ne[0]);
+    if (p != vocab_data->ne[0]) {
+        log::error("something wrong");
+        return false;
+    }
 
     return true;
 }
