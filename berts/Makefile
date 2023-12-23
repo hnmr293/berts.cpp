@@ -9,6 +9,9 @@ MK_CPPFLAGS = -I$(shell pwd)/.. -I$(shell pwd)/../ggml/include
 MK_CFLAGS = -std=c11 -fPIC
 MK_CXXFLAGS = -std=c++23 -fPIC
 
+# avoid w64devkit bug
+MK_CPPFLAGS += -fno-rtti
+
 ifdef BERT_USE_FMTLIB_FMT
 MK_CPPFLAGS += -DBERT_USE_FMTLIB_FMT
 MK_LDFLAGS += -lfmt
