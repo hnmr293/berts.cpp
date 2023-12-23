@@ -33,7 +33,16 @@
 *.out
 *.app
 
+# Python
+/.venv
+/venv
+__pycache__/
+*.py[cod]
+*$py.class
+
 # Others
 /.vs
 /.vscode
 /.clang-format
+/.cache
+/.gguf
