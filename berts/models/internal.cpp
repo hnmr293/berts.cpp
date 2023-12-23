@@ -17,7 +17,7 @@ struct vocab {
 
 struct berts_context {
     internal::hparams hparams;
-    vocab vocab;
+    struct vocab vocab;
     std::unique_ptr<internal::model> model;
     double eps;
     gguf_context *gguf;

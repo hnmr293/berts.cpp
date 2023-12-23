@@ -2,6 +2,7 @@
 
 #include <array>
 #include <cmath>
+#include <cstring>
 #include <format>
 #include <ranges>
 #include "berts/models/utils.hpp"
@@ -152,10 +153,10 @@ ggml_tensor *model::eval(berts_context *ctx,
     const auto n = tokens.size();
 
     auto token_emb = ggml_new_tensor_1d(ggml, GGML_TYPE_I32, n);
-    memcpy(token_emb->data, tokens.data(), n * ggml_element_size(token_emb));
+    std::memcpy(token_emb->data, tokens.data(), n * ggml_element_size(token_emb));
 
     auto seg_emb = ggml_new_tensor_1d(ggml, GGML_TYPE_I32, n);
-    memcpy(seg_emb->data, segments.data(), n * ggml_element_size(seg_emb));
+    std::memcpy(seg_emb->data, segments.data(), n * ggml_element_size(seg_emb));
 
     auto pos_emb = ggml_new_tensor_1d(ggml, GGML_TYPE_I32, n);
     for (size_t i = 0; i < n; ++i) {
