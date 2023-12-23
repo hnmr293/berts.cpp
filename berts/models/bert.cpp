@@ -3,7 +3,6 @@
 #include <array>
 #include <cmath>
 #include <cstring>
-#include <format>
 #include <ranges>
 #include "berts/models/utils.hpp"
 
@@ -47,15 +46,14 @@ const char *BERTS_KEY_BERT_ENC_N_LN_OUT_B = KEY_N(encoder.layer, output.LayerNor
 static inline ggml_tensor *tensor(ggml_context *ctx, const char *key) {
     auto t = ggml_get_tensor(ctx, key);
     if (!t) {
-        log::error(std::format("fail to read tensor {}", key));
-        GGML_ASSERT(false && "fail to read tensor");
+        log::error(berts::fmt("failed to read tensor: {}", key));
     }
     return t;
 }
 
 static inline ggml_tensor *tensor_n(ggml_context *ctx, const char *key, int n) {
-    auto name = std::vformat(key, std::make_format_args(n));
-    return tensor(ctx, name.c_str());
+    std::string msg = berts::fmt(key, n);
+    return tensor(ctx, msg.c_str());
 }
 
 bool model::init_weight(berts_context *ctx) {
@@ -65,11 +63,29 @@ bool model::init_weight(berts_context *ctx) {
 
     auto ggml = get_ggml_context(ctx);
 
-    this->token_embedding = tensor(ggml, BERTS_KEY_BERT_EMB_TOKEN);
-    this->segment_embedding = tensor(ggml, BERTS_KEY_BERT_EMB_SEGM);
-    this->position_embedding = tensor(ggml, BERTS_KEY_BERT_EMB_POS);
-    this->ln_w = tensor(ggml, BERTS_KEY_BERT_LN_W);
-    this->ln_b = tensor(ggml, BERTS_KEY_BERT_LN_B);
+#define GET_TENSOR(dest, key)         \
+    do {                              \
+        auto v = tensor(ggml, (key)); \
+        if (!v) {                     \
+            return false;             \
+        }                             \
+        dest = v;                     \
+    } while (0)
+
+#define GET_TENSOR_N(dest, key, n)           \
+    do {                                     \
+        auto v = tensor_n(ggml, (key), (n)); \
+        if (!v) {                            \
+            return false;                    \
+        }                                    \
+        dest = v;                            \
+    } while (0)
+
+    GET_TENSOR(this->token_embedding, BERTS_KEY_BERT_EMB_TOKEN);
+    GET_TENSOR(this->segment_embedding, BERTS_KEY_BERT_EMB_SEGM);
+    GET_TENSOR(this->position_embedding, BERTS_KEY_BERT_EMB_POS);
+    GET_TENSOR(this->ln_w, BERTS_KEY_BERT_LN_W);
+    GET_TENSOR(this->ln_b, BERTS_KEY_BERT_LN_B);
 
     hparams hparams;
     get_hparams(ctx, &hparams);
@@ -77,22 +93,22 @@ bool model::init_weight(berts_context *ctx) {
     this->layers.resize(hparams.n_layers);
 
     for (const auto [n, layer] : this->layers | std::views::enumerate) {
-        layer.q_w = tensor_n(ggml, BERTS_KEY_BERT_ENC_N_Q_W, n);
-        layer.q_b = tensor_n(ggml, BERTS_KEY_BERT_ENC_N_Q_B, n);
-        layer.k_w = tensor_n(ggml, BERTS_KEY_BERT_ENC_N_K_W, n);
-        layer.k_b = tensor_n(ggml, BERTS_KEY_BERT_ENC_N_K_B, n);
-        layer.v_w = tensor_n(ggml, BERTS_KEY_BERT_ENC_N_V_W, n);
-        layer.v_b = tensor_n(ggml, BERTS_KEY_BERT_ENC_N_V_B, n);
-        layer.ff_w = tensor_n(ggml, BERTS_KEY_BERT_ENC_N_FF_W, n);
-        layer.ff_b = tensor_n(ggml, BERTS_KEY_BERT_ENC_N_FF_B, n);
-        layer.ln_ff_w = tensor_n(ggml, BERTS_KEY_BERT_ENC_N_LN_FF_W, n);
-        layer.ln_ff_b = tensor_n(ggml, BERTS_KEY_BERT_ENC_N_LN_FF_B, n);
-        layer.i_w = tensor_n(ggml, BERTS_KEY_BERT_ENC_N_I_W, n);
-        layer.i_b = tensor_n(ggml, BERTS_KEY_BERT_ENC_N_I_B, n);
-        layer.o_w = tensor_n(ggml, BERTS_KEY_BERT_ENC_N_O_W, n);
-        layer.o_b = tensor_n(ggml, BERTS_KEY_BERT_ENC_N_O_B, n);
-        layer.ln_out_w = tensor_n(ggml, BERTS_KEY_BERT_ENC_N_LN_OUT_W, n);
-        layer.ln_out_b = tensor_n(ggml, BERTS_KEY_BERT_ENC_N_LN_OUT_B, n);
+        GET_TENSOR_N(layer.q_w, BERTS_KEY_BERT_ENC_N_Q_W, n);
+        GET_TENSOR_N(layer.q_b, BERTS_KEY_BERT_ENC_N_Q_B, n);
+        GET_TENSOR_N(layer.k_w, BERTS_KEY_BERT_ENC_N_K_W, n);
+        GET_TENSOR_N(layer.k_b, BERTS_KEY_BERT_ENC_N_K_B, n);
+        GET_TENSOR_N(layer.v_w, BERTS_KEY_BERT_ENC_N_V_W, n);
+        GET_TENSOR_N(layer.v_b, BERTS_KEY_BERT_ENC_N_V_B, n);
+        GET_TENSOR_N(layer.ff_w, BERTS_KEY_BERT_ENC_N_FF_W, n);
+        GET_TENSOR_N(layer.ff_b, BERTS_KEY_BERT_ENC_N_FF_B, n);
+        GET_TENSOR_N(layer.ln_ff_w, BERTS_KEY_BERT_ENC_N_LN_FF_W, n);
+        GET_TENSOR_N(layer.ln_ff_b, BERTS_KEY_BERT_ENC_N_LN_FF_B, n);
+        GET_TENSOR_N(layer.i_w, BERTS_KEY_BERT_ENC_N_I_W, n);
+        GET_TENSOR_N(layer.i_b, BERTS_KEY_BERT_ENC_N_I_B, n);
+        GET_TENSOR_N(layer.o_w, BERTS_KEY_BERT_ENC_N_O_W, n);
+        GET_TENSOR_N(layer.o_b, BERTS_KEY_BERT_ENC_N_O_B, n);
+        GET_TENSOR_N(layer.ln_out_w, BERTS_KEY_BERT_ENC_N_LN_OUT_W, n);
+        GET_TENSOR_N(layer.ln_out_b, BERTS_KEY_BERT_ENC_N_LN_OUT_B, n);
     }
 
     return true;
@@ -112,20 +128,22 @@ bool model::load_vocab(berts_context *ctx) {
     GGML_ASSERT(vocab_data && "key vocab_data is not found");
     GGML_ASSERT(vocab_size->n_dims == 1);
     GGML_ASSERT(vocab_data->n_dims == 1);
-    GGML_ASSERT(vocab_size->ne[0] == vocab_data->ne[0]);
     GGML_ASSERT(vocab_size->type == GGML_TYPE_I32);
     GGML_ASSERT(vocab_data->type == GGML_TYPE_I8);
 
     const int64_t vocab_count = vocab_size->ne[0];
     auto token_lengths = static_cast<const int32_t *>(vocab_size->data);
-    auto data = static_cast<const char *>(vocab_data->data);
+    const auto data = static_cast<const char *>(vocab_data->data);
+    ptrdiff_t p = 0;
     for (int64_t token_id = 0; token_id < vocab_count; ++token_id) {
         size_t token_len = (size_t)token_lengths[token_id];
-        std::string token{&data[0], token_len};
-        data += token_len;
+        std::string token{&data[p], token_len};
+        p += token_len;
 
         internal::add_token(ctx, token);
     }
+
+    GGML_ASSERT(p == vocab_data->ne[0]);
 
     return true;
 }
