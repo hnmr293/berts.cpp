@@ -8,7 +8,7 @@ namespace gguf = berts::gguf;
 
 #define BERTS_VERSION_MAJOR 0
 #define BERTS_VERSION_MINOR 1
-#define BERTS_VERSION_PATCH 0
+#define BERTS_VERSION_PATCH 1
 #define STRINGIFY(v) #v
 #define CREATE_VERSION(i,j,k) STRINGIFY(i) "." STRINGIFY(j) "." STRINGIFY(k)
 

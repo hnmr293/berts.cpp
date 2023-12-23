@@ -45,13 +45,20 @@ LIB_PRE := lib
 endif
 
 ifneq ($(_WIN32),1)
+SO_EXT := .a
+else
+SO_EXT := .lib
+endif
+
+ifneq ($(_WIN32),1)
 DSO_EXT := .so
 else
 DSO_EXT := .dll
 endif
 
-STATIC_LIB_NAME := $(LIB_PRE)berts.lib
+STATIC_LIB_NAME := $(LIB_PRE)berts$(SO_EXT)
 DYNAMIC_LIB_NAME := $(LIB_PRE)berts$(DSO_EXT)
+STAITC_LIB_GGML := $(LIB_PRE)ggml$(SO_EXT)
 
 #
 # cuBLAS
@@ -111,5 +118,5 @@ $(DYNAMIC_LIB_NAME): $(OBJS)
 # examples
 #
 
-main: examples/main.cpp $(COMMON_HEADERS) $(STATIC_LIB_NAME)
+main: examples/main.cpp $(COMMON_HEADERS) $(STATIC_LIB_NAME) ../ggml/build/src/$(STAITC_LIB_GGML)
 	$(CXX) $(CXXFLAGS) $(filter-out %.h %.hpp,$^) -o $@ $(LDFLAGS)
