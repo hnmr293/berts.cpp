@@ -12,36 +12,36 @@ using namespace berts::internal;
 
 #define KEY_PREFIX "berts.bert."
 #define KEY(s) KEY_PREFIX #s
-#define KEY_N(s) KEY_PREFIX "{}." #s
+#define KEY_N(pre, post) KEY_PREFIX #pre ".{}." #post
 
 // vocab keys
 const char *BERTS_KEY_BERT_VOCAB_SIZE = KEY(vocab_size);
 const char *BERTS_KEY_BERT_VOCAB_DATA = KEY(vocab_data);
 
 // embedding keys
-const char *BERTS_KEY_BERT_EMB_TOKEN = KEY(token_embedding);
-const char *BERTS_KEY_BERT_EMB_SEGM = KEY(segment_embedding);
-const char *BERTS_KEY_BERT_EMB_POS = KEY(position_embedding);
-const char *BERTS_KEY_BERT_LN_W = KEY(ln_w);
-const char *BERTS_KEY_BERT_LN_B = KEY(ln_b);
+const char *BERTS_KEY_BERT_EMB_TOKEN = KEY(embeddings.word_embeddings.weight);
+const char *BERTS_KEY_BERT_EMB_SEGM = KEY(embeddings.token_type_embeddings.weight);
+const char *BERTS_KEY_BERT_EMB_POS = KEY(embeddings.position_embeddings.weight);
+const char *BERTS_KEY_BERT_LN_W = KEY(embeddings.LayerNorm.weight);
+const char *BERTS_KEY_BERT_LN_B = KEY(embeddings.LayerNorm.bias);
 
 // encoder keys
-const char *BERTS_KEY_BERT_ENC_N_Q_W = KEY_N(q_w);
-const char *BERTS_KEY_BERT_ENC_N_Q_B = KEY_N(q_b);
-const char *BERTS_KEY_BERT_ENC_N_K_W = KEY_N(k_w);
-const char *BERTS_KEY_BERT_ENC_N_K_B = KEY_N(k_b);
-const char *BERTS_KEY_BERT_ENC_N_V_W = KEY_N(v_w);
-const char *BERTS_KEY_BERT_ENC_N_V_B = KEY_N(v_b);
-const char *BERTS_KEY_BERT_ENC_N_FF_W = KEY_N(ff_w);
-const char *BERTS_KEY_BERT_ENC_N_FF_B = KEY_N(ff_b);
-const char *BERTS_KEY_BERT_ENC_N_LN_FF_W = KEY_N(ln_ff_w);
-const char *BERTS_KEY_BERT_ENC_N_LN_FF_B = KEY_N(ln_ff_b);
-const char *BERTS_KEY_BERT_ENC_N_I_W = KEY_N(i_w);
-const char *BERTS_KEY_BERT_ENC_N_I_B = KEY_N(i_b);
-const char *BERTS_KEY_BERT_ENC_N_O_W = KEY_N(o_w);
-const char *BERTS_KEY_BERT_ENC_N_O_B = KEY_N(o_b);
-const char *BERTS_KEY_BERT_ENC_N_LN_OUT_W = KEY_N(ln_out_w);
-const char *BERTS_KEY_BERT_ENC_N_LN_OUT_B = KEY_N(ln_out_b);
+const char *BERTS_KEY_BERT_ENC_N_Q_W = KEY_N(encoder.layer, attention.self.query.weight);
+const char *BERTS_KEY_BERT_ENC_N_Q_B = KEY_N(encoder.layer, attention.self.query.bias);
+const char *BERTS_KEY_BERT_ENC_N_K_W = KEY_N(encoder.layer, attention.self.key.weight);
+const char *BERTS_KEY_BERT_ENC_N_K_B = KEY_N(encoder.layer, attention.self.key.bias);
+const char *BERTS_KEY_BERT_ENC_N_V_W = KEY_N(encoder.layer, attention.self.value.weight);
+const char *BERTS_KEY_BERT_ENC_N_V_B = KEY_N(encoder.layer, attention.self.value.bias);
+const char *BERTS_KEY_BERT_ENC_N_FF_W = KEY_N(encoder.layer, attention.output.dense.weight);
+const char *BERTS_KEY_BERT_ENC_N_FF_B = KEY_N(encoder.layer, attention.output.dense.bias);
+const char *BERTS_KEY_BERT_ENC_N_LN_FF_W = KEY_N(encoder.layer, attention.output.LayerNorm.weight);
+const char *BERTS_KEY_BERT_ENC_N_LN_FF_B = KEY_N(encoder.layer, attention.output.LayerNorm.bias);
+const char *BERTS_KEY_BERT_ENC_N_I_W = KEY_N(encoder.layer, intermediate.dense.weight);
+const char *BERTS_KEY_BERT_ENC_N_I_B = KEY_N(encoder.layer, intermediate.dense.bias);
+const char *BERTS_KEY_BERT_ENC_N_O_W = KEY_N(encoder.layer, output.dense.weight);
+const char *BERTS_KEY_BERT_ENC_N_O_B = KEY_N(encoder.layer, output.dense.bias);
+const char *BERTS_KEY_BERT_ENC_N_LN_OUT_W = KEY_N(encoder.layer, output.LayerNorm.weight);
+const char *BERTS_KEY_BERT_ENC_N_LN_OUT_B = KEY_N(encoder.layer, output.LayerNorm.bias);
 
 static inline ggml_tensor *tensor(ggml_context *ctx, const char *key) {
     auto t = ggml_get_tensor(ctx, key);
