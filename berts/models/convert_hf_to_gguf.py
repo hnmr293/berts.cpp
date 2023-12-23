@@ -151,6 +151,8 @@ def convert(input_path: str, output_path: str):
         model_name = os.path.basename(input_path)
     w.add_name(model_name)
 
+    w.add_custom_alignment(w.data_alignment) # if omitted, writer never writes "general.alignment"
+
     print(f'''
 [hparams]
   vocab_size = {config.vocab_size}
