@@ -316,12 +316,7 @@ berts_context *load_from_file(const std::string &path) {
         GGML_ASSERT(false && "unknown bert_type");
     }
 
-    auto ctx = internal::new_context(hparams, model, gguf, ggml);
-    
-    // success
-    gg.gguf.release();
-    ggml.release();
-
+    auto ctx = internal::new_context(hparams, model, gg.gguf.release(), ggml.release());
     return ctx;
 }
 

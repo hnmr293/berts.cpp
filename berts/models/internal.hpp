@@ -34,6 +34,12 @@ struct model {
     virtual ggml_tensor *eval(berts_context *ctx, const std::vector<bert_token_t> &tokens, const std::vector<bert_segment_t> &segments) = 0;
 };
 
+/// @brief create new `berts_context`
+/// @param hparams hyper parameters
+/// @param model model (invalidated if function call is failed)
+/// @param gguf gguf context (invalidated if function call is failed)
+/// @param ctx ggml context (invalidated if function call is failed)
+/// @return a pointer to new `berts_context` or `nullptr` if function call is failed
 berts_context *new_context(const hparams &hparams, model *model, gguf_context *gguf, ggml_context *ctx);
 
 void free_context(berts_context *ctx);

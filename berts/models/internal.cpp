@@ -2,8 +2,9 @@
 #include <cmath>
 #include <memory>
 #include "berts/models/utils.hpp"
+#include "berts/models/log.hpp"
 
-namespace internal = berts::internal;
+using namespace berts;
 
 struct vocab {
     std::vector<std::string> id_to_token;
@@ -22,26 +23,38 @@ struct berts_context {
     double eps;
     gguf_context *gguf;
     ggml_context *ctx;
+    bool initialized_success;
+
     berts_context(const internal::hparams &hparams, internal::model *model, gguf_context *gguf, ggml_context *ctx)
         : hparams(hparams)
         , vocab()
         , model(model)
         , gguf(gguf)
-        , ctx(ctx) {
+        , ctx(ctx)
+        , initialized_success(false) {
         if (model) {
-            bool ok;
-            ok = model->load_vocab(this);
-            GGML_ASSERT(ok && "fail to load vocab");
-            ok = model->init_weight(this);
-            GGML_ASSERT(ok && "fail to load weights");
+            if (!model->load_vocab(this)) {
+                log::error("fail to load vocab");
+                return;
+            }
+            if (!model->init_weight(this)) {
+                log::error("fail to load weights");
+                return;
+            }
         }
+        this->initialized_success = true;
     }
 };
 
 namespace berts::internal {
 
 berts_context *new_context(const hparams &hparams, model *model, gguf_context *gguf, ggml_context *ctx) {
-    return new berts_context{hparams, model, gguf, ctx};
+    auto bert = new berts_context{hparams, model, gguf, ctx};
+    if (!bert->initialized_success) {
+        delete bert;
+        bert = nullptr;
+    }
+    return bert;
 }
 
 void free_context(berts_context *ctx) {

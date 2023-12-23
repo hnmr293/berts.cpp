@@ -9,6 +9,12 @@ int main() {
     const char *model_path = ".gguf/bert-base-cased.gguf";
 
     auto ctx = berts_load_from_file(model_path);
+
+    if (ctx) {
+        std::cout << "success" << std::endl;
+    } else {
+        std::cout << "fail" << std::endl;
+    }
     
     berts_free(ctx);
 
