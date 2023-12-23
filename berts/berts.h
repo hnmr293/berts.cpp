@@ -55,7 +55,7 @@ enum hidden_act {
 // general
 //
 
-const char* berts_version(void);
+const char *berts_version(void);
 
 int berts_version_major(void);
 
@@ -87,6 +87,19 @@ ggml_tensor *berts_eval(berts_context *ctx,
                         const bert_token_t *tokens,
                         const bert_segment_t *segments,
                         size_t token_count);
+
+//
+// quantization
+//
+
+/// @brief quantize {input_path} model to {output_path}
+/// @param input_path 
+/// @param output_path 
+/// @param qtype 
+/// @return 0 if succeeded, otherwize non-0 value
+int berts_model_quantize(const char *input_path,
+                         const char *output_path,
+                         ggml_type qtype);
 
 #ifdef __cplusplus
 }

@@ -63,6 +63,13 @@ struct unique_ctx {
     operator bool() const { return !!this->ctx; }
 };
 
+struct berts_context_disposer {
+    static void dispose(berts_context *ctx) {
+        if (ctx)
+            berts_free(ctx);
+    }
+};
+
 struct ggml_context_disposer {
     static void dispose(ggml_context *ctx) {
         if (ctx)
@@ -75,6 +82,17 @@ struct gguf_context_disposer {
         if (ctx)
             gguf_free(ctx);
     }
+};
+
+/// @brief RAII class for berts_context
+struct berts_ctx : public unique_ctx<berts_context, berts_context_disposer> {
+    berts_ctx()
+        : berts_ctx(nullptr) {}
+
+    berts_ctx(berts_context *ctx)
+        : unique_ctx(ctx) {}
+
+    ~berts_ctx() { log::debug("berts_free"); }
 };
 
 /// @brief RAII class for ggml_context

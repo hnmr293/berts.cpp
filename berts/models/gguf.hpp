@@ -13,4 +13,10 @@ berts_context *load_from_file(const std::string &path);
 
 // berts_context *load_from_stream(std::istream &stream);
 
+//
+// utilities
+//
+
+std::string type_to_str(ggml_type type);
+
 } // namespace berts::gguf

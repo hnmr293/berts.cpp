@@ -94,6 +94,10 @@ static inline std::string ftype(uint32_t ftype) {
     return ftypes[ftype];
 }
 
+std::string type_to_str(ggml_type type) {
+    return ftype((uint32_t)type);
+}
+
 //
 // keys
 //
@@ -293,7 +297,10 @@ berts_context *load_from_file(const std::string &path) {
         GGML_ASSERT(false && "unknown bert_type");
     }
 
-    auto ctx = internal::new_context(hparams, model, ggml);
+    auto ctx = internal::new_context(hparams, model, gguf, ggml);
+    
+    // success
+    gg.gguf.release();
     ggml.release();
 
     return ctx;

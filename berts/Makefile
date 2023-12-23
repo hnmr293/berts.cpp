@@ -97,6 +97,9 @@ gguf.o: models/gguf.cpp models/gguf.hpp $(COMMON_HEADERS)
 bert.o: models/bert.cpp models/bert.hpp $(COMMON_HEADERS)
 	$(CXX) $(CXXFLAGS) -c $< -o $@
 
+quantize.o: models/quantize.cpp $(COMMON_HEADERS)
+	$(CXX) $(CXXFLAGS) -c $< -o $@
+
 internal.o: models/internal.cpp models/internal.hpp $(COMMON_HEADERS)
 	$(CXX) $(CXXFLAGS) -c $< -o $@
 
@@ -106,7 +109,7 @@ log.o: models/log.cpp models/log.hpp $(COMMON_HEADERS)
 clean:
 	rm -rf *.o *.lib *.so *.dll *.exe
 
-OBJS += berts.o gguf.o bert.o internal.o log.o 
+OBJS += berts.o gguf.o bert.o quantize.o internal.o log.o 
 
 $(STATIC_LIB_NAME): $(OBJS)
 	ar rcs $@ $^

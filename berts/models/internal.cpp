@@ -20,11 +20,13 @@ struct berts_context {
     vocab vocab;
     std::unique_ptr<internal::model> model;
     double eps;
+    gguf_context *gguf;
     ggml_context *ctx;
-    berts_context(internal::hparams hparams, internal::model *model, ggml_context *ctx)
+    berts_context(internal::hparams hparams, internal::model *model, gguf_context *gguf, ggml_context *ctx)
         : hparams(hparams)
         , vocab()
         , model(model)
+        , gguf(gguf)
         , ctx(ctx) {
         if (model) {
             bool ok;
@@ -38,12 +40,16 @@ struct berts_context {
 
 namespace berts::internal {
 
-berts_context *new_context(hparams hparams, model *model, ggml_context *ctx) {
-    return new berts_context{hparams, model, ctx};
+berts_context *new_context(hparams hparams, model *model, gguf_context *gguf, ggml_context *ctx) {
+    return new berts_context{hparams, model, gguf, ctx};
 }
 
 void free_context(berts_context *ctx) {
     delete ctx;
+}
+
+gguf_context *get_gguf_context(berts_context *ctx) {
+    return ctx->gguf;
 }
 
 ggml_context *get_ggml_context(berts_context *ctx) {

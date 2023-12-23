@@ -34,9 +34,11 @@ struct model {
     virtual ggml_tensor *eval(berts_context *ctx, const std::vector<bert_token_t> &tokens, const std::vector<bert_segment_t> &segments) = 0;
 };
 
-berts_context *new_context(hparams hparams, model *model, ggml_context *ctx);
+berts_context *new_context(hparams hparams, model *model, gguf_context *gguf, ggml_context *ctx);
 
 void free_context(berts_context *ctx);
+
+gguf_context *get_gguf_context(berts_context *ctx);
 
 ggml_context *get_ggml_context(berts_context *ctx);
 
