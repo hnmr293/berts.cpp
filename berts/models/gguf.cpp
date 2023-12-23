@@ -237,10 +237,16 @@ berts_context *load_from_file(const std::string &path) {
         .no_alloc = false,
     };
     ggml_ctx ggml{params};
-    GGML_ASSERT(ggml && "fail to init ggml");
+    if (!ggml) {
+        log::error("fail to init ggml");
+        return nullptr;
+    }
 
     std::ifstream in{path, std::ios::binary};
-    GGML_ASSERT(in && "fail to open gguf file");
+    if (!in) {
+        log::error("fail to open gguf file");
+        return nullptr;
+    }
 
     // load tensors
     {
@@ -256,7 +262,10 @@ berts_context *load_from_file(const std::string &path) {
 
             const auto offset = gguf_get_data_offset(gguf) + gguf_get_tensor_offset(gguf, i);
             in.seekg(offset, std::ios::beg);
-            GGML_ASSERT(in && "failed to seek gguf file");
+            if (!in) {
+                log::error("failed to seek gguf file");
+                return nullptr;
+            }
             in.read((char *)x->data, ggml_nbytes(t));
         }
     }
@@ -300,7 +309,8 @@ berts_context *load_from_file(const std::string &path) {
         // ok
         break;
     default:
-        GGML_ASSERT(false && "unknown hidden_act");
+        log::error(berts::fmt("unknown hidden_act: {}", (int)hparams.hidden_act));
+        return nullptr;
     }
 
     internal::model *model;
@@ -313,7 +323,8 @@ berts_context *load_from_file(const std::string &path) {
         model = new bert::model(type);
         break;
     default:
-        GGML_ASSERT(false && "unknown bert_type");
+        log::error(berts::fmt("unknown bert_type: {}", (int)hparams.architecture));
+        return nullptr;
     }
 
     auto ctx = internal::new_context(hparams, model, gg.gguf.release(), ggml.release());
