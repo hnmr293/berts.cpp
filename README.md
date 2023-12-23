@@ -9,7 +9,7 @@
 ## How to build
 
 ```bash
-$ git clone --depth 1 https://github.com/hnmr293/berts.cpp --recursive-submodules --shallow-submodules
+$ git clone --depth 1 https://github.com/hnmr293/berts.cpp --recurse-submodules --shallow-submodules
 $ cd berts.cpp
 
 # make ggml
@@ -31,3 +31,6 @@ $ BERTS_DEBUG=1 make -j
 - zstd vocab
 - load gguf from memory
 - load gguf from std::istream
+- move eps from `berts_context` to `internal::hparams`
+- pooling
+- remove `berts::log::log_level`
