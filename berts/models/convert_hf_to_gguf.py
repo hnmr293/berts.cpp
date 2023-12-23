@@ -231,7 +231,7 @@ def convert(input_path: str, output_path: str):
         total_size_org += size_org
         total_size_new += size_new
 
-        w.add_tensor(key, tensor)
+        w.add_tensor('berts.bert.' + key, tensor)
 
         print(f'''
 {key}:
