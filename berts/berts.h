@@ -6,6 +6,7 @@
 //
 
 #include <stdint.h>
+#include <stdio.h>
 #include "ggml/ggml.h"
 
 #ifdef BERTS_SHARED
@@ -62,6 +63,28 @@ int berts_version_major(void);
 int berts_version_minor(void);
 
 int berts_version_patch(void);
+
+//
+// logging
+//
+
+enum berts_log_level {
+    BERTS_LOG_ALL = 0,
+    BERTS_LOG_DEBUG = 0,
+    BERTS_LOG_INFO = 1,
+    BERTS_LOG_WARN = 2,
+    BERTS_LOG_DEFAULT = 2,
+    BERTS_LOG_ERROR = 3,
+    BERTS_LOG_QUIET = 10,
+};
+
+berts_log_level berts_get_log_level(void);
+
+void berts_set_log_level(berts_log_level level);
+
+FILE *berts_get_log_file(void);
+
+void berts_set_log_file(FILE *file);
 
 //
 // context

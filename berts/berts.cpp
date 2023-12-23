@@ -2,19 +2,21 @@
 #include "berts/berts.hpp"
 #include "berts/models/gguf.hpp"
 #include "berts/models/internal.hpp"
+#include "berts/models/log.hpp"
 
 namespace internal = berts::internal;
 namespace gguf = berts::gguf;
+namespace log = berts::log;
 
 #define BERTS_VERSION_MAJOR 0
 #define BERTS_VERSION_MINOR 1
 #define BERTS_VERSION_PATCH 1
 #define STRINGIFY(v) #v
-#define CREATE_VERSION(i,j,k) STRINGIFY(i) "." STRINGIFY(j) "." STRINGIFY(k)
+#define CREATE_VERSION(i, j, k) STRINGIFY(i) "." STRINGIFY(j) "." STRINGIFY(k)
 
 static const char *BERTS_VERSION = CREATE_VERSION(BERTS_VERSION_MAJOR, BERTS_VERSION_MINOR, BERTS_VERSION_PATCH);
 
-const char* berts_version(void) {
+const char *berts_version(void) {
     return BERTS_VERSION;
 }
 
@@ -28,6 +30,22 @@ int berts_version_minor(void) {
 
 int berts_version_patch(void) {
     return BERTS_VERSION_PATCH;
+}
+
+berts_log_level berts_get_log_level(void) {
+    return (berts_log_level)(int)log::get_log_level();
+}
+
+void berts_set_log_level(berts_log_level level) {
+    log::set_log_level((log::log_level)level);
+}
+
+FILE *berts_get_log_file(void) {
+    return log::get_log_file();
+}
+
+void berts_set_log_file(FILE *file) {
+    log::set_log_file(file);
 }
 
 void berts_free(berts_context *ctx) {
