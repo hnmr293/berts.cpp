@@ -21,6 +21,8 @@ $ ./berts/main
 |---  |---   |
 |`BERTS_DEBUG`|Enable debugging|
 |`BERTS_USE_FMTLIB_FMT`|Use [{fmt} lib](https://github.com/fmtlib/fmt) instead of std::format|
+|`BERTS_FMTLIB_FMT_INCLUDE`|Specify include path of {fmt} header (passed to `-I`)|
+|`BERTS_FMTLIB_FMT_LIB`|Specify search path for `libfmt.a` (passed to `-L`)|
 
 ## TODO
 
