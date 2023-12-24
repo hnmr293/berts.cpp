@@ -48,14 +48,14 @@ struct unique_ctx {
 
     unique_ctx(const self_type &) = delete;
 
-    unique_ctx(self_type &&other)
+    unique_ctx(self_type &&other) noexcept
         : ctx(other.ctx) {
         other.ctx = nullptr;
     }
 
     self_type &operator=(const self_type &) = delete;
 
-    self_type &operator=(self_type &&other) {
+    self_type &operator=(self_type &&other) noexcept {
         if (this != &other) {
             this->dispose();
             this->ctx = other.ctx;
@@ -169,13 +169,13 @@ struct gg_ctx {
 
     gg_ctx(const gg_ctx &) = delete;
 
-    gg_ctx(gg_ctx &&other)
+    gg_ctx(gg_ctx &&other) noexcept
         : ggml(other.ggml.release())
         , gguf(other.gguf.release()) {}
 
     gg_ctx &operator=(const gg_ctx &) = delete;
 
-    gg_ctx &operator=(gg_ctx &&other) {
+    gg_ctx &operator=(gg_ctx &&other) noexcept {
         if (this != &other) {
             this->dispose();
             this->ggml.ctx = other.ggml.release();
