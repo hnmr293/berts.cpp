@@ -9,8 +9,8 @@ namespace gguf = berts::gguf;
 namespace log = berts::log;
 
 #define BERTS_VERSION_MAJOR 0
-#define BERTS_VERSION_MINOR 1
-#define BERTS_VERSION_PATCH 1
+#define BERTS_VERSION_MINOR 2
+#define BERTS_VERSION_PATCH 0
 #define STRINGIFY(v) #v
 #define CREATE_VERSION(i, j, k) STRINGIFY(i) "." STRINGIFY(j) "." STRINGIFY(k)
 
