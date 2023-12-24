@@ -40,6 +40,7 @@ static inline void write_zeros(std::ostream &out, size_t n) {
 
 static inline bool quantize(const ggml_tensor *t, ggml_type new_type, conv_buf &buffer, size_t *new_size) {
     const size_t n = ggml_nelements(t);
+    buffer.reserve(n);
 
     // cast values to fp32
     float *data;
@@ -49,7 +50,6 @@ static inline bool quantize(const ggml_tensor *t, ggml_type new_type, conv_buf &
         data = static_cast<float *>(t->data);
         break;
     case GGML_TYPE_F16:
-        buffer.reserve(n);
         data = buffer.f();
         std::transform((ggml_fp16_t *)t->data, (ggml_fp16_t *)t->data + n, data, ggml_fp16_to_fp32);
         break;
