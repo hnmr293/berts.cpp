@@ -163,7 +163,7 @@ bool berts_model_quantize(const char *input_path,
         out.write((const char *)data, size_in_bytes);
         write_zeros(out, pad);
 
-        log::when(log::log_level::info, [=]() {
+        log::when(BERTS_LOG_INFO, [=]() {
             const std::string msg = berts::fmt(
                 "{}:\n"
                 "  quantized = {}\n"
@@ -193,7 +193,7 @@ bool berts_model_quantize(const char *input_path,
     //
     // dump info
     //
-    log::when(log::log_level::info, [=, &buffer]() {
+    log::when(BERTS_LOG_INFO, [=, &buffer]() {
         std::string msg = berts::fmt(
             "========================================\n"
             "original size  = {} ({:.1f} MiB)\n"

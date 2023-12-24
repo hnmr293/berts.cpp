@@ -37,7 +37,7 @@ berts_log_level berts_get_log_level(void) {
 }
 
 void berts_set_log_level(berts_log_level level) {
-    log::set_log_level((log::log_level)level);
+    log::set_log_level(level);
 }
 
 FILE *berts_get_log_file(void) {

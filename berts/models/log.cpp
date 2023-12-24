@@ -2,19 +2,19 @@
 
 namespace berts::log {
 
-log_level LOG_LEVEL = log_level::normal;
+berts_log_level LOG_LEVEL = berts_log_level::BERTS_LOG_DEFAULT;
 
 FILE *LOG_FILE = stderr;
 
-void set_log_level(log_level level) {
+void set_log_level(berts_log_level level) {
     LOG_LEVEL = level;
 }
 
-log_level get_log_level() {
+berts_log_level get_log_level() {
     return LOG_LEVEL;
 }
 
-bool is_logging(log_level level) {
+bool is_logging(berts_log_level level) {
     return static_cast<int>(LOG_LEVEL) <= static_cast<int>(level);
 }
 
@@ -34,7 +34,7 @@ static inline void write(const std::string &msg) {
     }
 }
 
-template <log_level N>
+template <berts_log_level N>
 static inline void write_if(const std::string &msg) {
     if ((int)LOG_LEVEL <= (int)N) {
         write(msg);
@@ -42,19 +42,19 @@ static inline void write_if(const std::string &msg) {
 }
 
 void debug(const std::string &msg) {
-    write_if<log_level::debug>(msg);
+    write_if<berts_log_level::BERTS_LOG_DEBUG>(msg);
 }
 
 void info(const std::string &msg) {
-    write_if<log_level::info>(msg);
+    write_if<berts_log_level::BERTS_LOG_INFO>(msg);
 }
 
 void warn(const std::string &msg) {
-    write_if<log_level::warn>(msg);
+    write_if<berts_log_level::BERTS_LOG_WARN>(msg);
 }
 
 void error(const std::string &msg) {
-    write_if<log_level::error>(msg);
+    write_if<berts_log_level::BERTS_LOG_ERROR>(msg);
 }
 
 } // namespace berts::log

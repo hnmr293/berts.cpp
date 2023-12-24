@@ -166,7 +166,7 @@ static gg_ctx init_gg(const std::string &path, size_t *ctx_size) {
             n_tensors,
             n_kv));
 
-        log::when(log::log_level::debug, [n_kv, gguf]() {
+        log::when(BERTS_LOG_DEBUG, [n_kv, gguf]() {
             for (int i = 0; i < n_kv; ++i) {
                 auto key = gguf_get_key(gguf, i);
                 const auto msg = berts::fmt("  key {0}: {1}", i, key);
@@ -189,7 +189,7 @@ static gg_ctx init_gg(const std::string &path, size_t *ctx_size) {
             size_t padded_size = ggml_nbytes_pad(t);
             ctx_size_ += sizeof(struct ggml_tensor) + padded_size + GGML_OBJECT_SIZE;
 
-            log::when(log::log_level::debug, [=]() {
+            log::when(BERTS_LOG_DEBUG, [=]() {
                 const auto msg = berts::fmt(
                     "  tensor {}\n"
                     "    name: {} ({})\n"
@@ -253,7 +253,7 @@ berts_context *load_from_file(const std::string &path) {
         const auto n_tensors = gguf_get_n_tensors(gguf);
         for (int i = 0; i < n_tensors; ++i) {
             const auto tensor_name = gguf_get_tensor_name(gguf, i);
-            log::when(log::log_level::debug, [=]() {
+            log::when(BERTS_LOG_DEBUG, [=]() {
                 log::debug(berts::fmt("  load {} {}", i, tensor_name));
             });
             auto t = ggml_get_tensor(ggml_meta, tensor_name);
@@ -280,7 +280,7 @@ berts_context *load_from_file(const std::string &path) {
     hparams.intermediate_dim = gguf_u32(gguf, BERTS_KEY_HPARAM_INTERMEDIATE_DIM);
     hparams.hidden_act = static_cast<hidden_act>(gguf_u32(gguf, BERTS_KEY_HPARAM_HIDDEN_ACT));
 
-    log::when(log::log_level::info, [&hparams]() {
+    log::when(BERTS_LOG_INFO, [&hparams]() {
         log::info(berts::fmt(
             "hparams\n"
             "  arch: {}\n"

@@ -117,7 +117,7 @@ bool model::init_weight(berts_context *ctx) {
     }
 
     // print unused tensors
-    log::when(log::log_level::info, [&stored, ctx]() {
+    log::when(BERTS_LOG_INFO, [&stored, ctx]() {
         const auto gguf = get_gguf_context(ctx);
         const int n_tensors = gguf_get_n_tensors(gguf);
         for (int i = 0; i < n_tensors; ++i) {
