@@ -1,9 +1,27 @@
 BUILD_TARGET = \
 	$(STATIC_LIB_NAME) \
 	$(DYNAMIC_LIB_NAME) \
-	main
+	main \
+	main_d
 
 default: $(BUILD_TARGET)
+
+# detect WIN32 and MinGW
+ifndef UNAME_S
+UNAME_S := $(shell uname -s)
+endif
+
+ifneq ($(findstring _NT,$(UNAME_S)),)
+_WIN32 := 1
+# use *.lib
+WIN_LIB := 1
+endif
+
+ifneq '' '$(findstring mingw,$(shell $(CC) -dumpmachine))'
+_MINGW := 1
+# use lib*.a
+WIN_LIB := 0
+endif
 
 MK_CPPFLAGS = -I$(shell pwd)/.. -I$(shell pwd)/../ggml/include
 MK_CFLAGS = -std=c11 -fPIC
@@ -43,21 +61,17 @@ MK_CXXFLAGS += $(WARN_FLAGS) -Wmissing-declarations -Wmissing-noreturn
 #
 # lib prefix and suffix
 #
-ifneq ($(findstring _NT,$(UNAME_S)),)
-_WIN32 := 1
-endif
-
-ifneq ($(_WIN32),1)
+ifneq ($(WIN_LIB),1)
 LIB_PRE := lib
 endif
 
-ifneq ($(_WIN32),1)
+ifneq ($(WIN_LIB),1)
 SO_EXT := .a
 else
 SO_EXT := .lib
 endif
 
-ifneq ($(_WIN32),1)
+ifneq ($(WIN_LIB),1)
 DSO_EXT := .so
 else
 DSO_EXT := .dll
@@ -66,6 +80,7 @@ endif
 STATIC_LIB_NAME := $(LIB_PRE)berts$(SO_EXT)
 DYNAMIC_LIB_NAME := $(LIB_PRE)berts$(DSO_EXT)
 STAITC_LIB_GGML := $(LIB_PRE)ggml$(SO_EXT)
+STAITC_LIB_GGML_D := $(LIB_PRE)ggml_d$(SO_EXT)
 
 #
 # cuBLAS
@@ -128,5 +143,8 @@ $(DYNAMIC_LIB_NAME): $(OBJS)
 # examples
 #
 
-main: examples/main.cpp $(COMMON_HEADERS) $(STATIC_LIB_NAME) ../ggml/build/src/$(STAITC_LIB_GGML)
+main: examples/main.cpp $(COMMON_HEADERS) $(STATIC_LIB_NAME) ../lib/$(STAITC_LIB_GGML)
+	$(CXX) $(CXXFLAGS) $(filter-out %.h %.hpp,$^) -o $@ $(LDFLAGS)
+
+main_d: examples/main.cpp $(COMMON_HEADERS) $(STATIC_LIB_NAME) ../lib/$(STAITC_LIB_GGML_D)
 	$(CXX) $(CXXFLAGS) $(filter-out %.h %.hpp,$^) -o $@ $(LDFLAGS)
