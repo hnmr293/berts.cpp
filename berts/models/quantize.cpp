@@ -67,12 +67,6 @@ static inline bool quantize(const ggml_tensor *t, ggml_type new_type, conv_buf &
     return true;
 }
 
-bool berts_model_quantize(const std::string &input_path,
-                          const std::string &output_path,
-                          ggml_type qtype) {
-    return berts_model_quantize(input_path.c_str(), output_path.c_str(), qtype);
-}
-
 bool berts_model_quantize(const char *input_path,
                           const char *output_path,
                           ggml_type qtype) {

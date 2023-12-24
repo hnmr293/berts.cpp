@@ -5,8 +5,8 @@
 //   C++ API
 //
 
-#include <vector>
 #include <string>
+#include <vector>
 #include "berts/berts.h"
 
 namespace berts {
@@ -32,8 +32,8 @@ ggml_tensor *eval(berts_context *ctx,
 // quantization
 //
 
-bool berts_model_quantize(const std::string &input_path,
-                          const std::string &output_path,
-                          ggml_type qtype);
+bool model_quantize(const std::string &input_path,
+                    const std::string &output_path,
+                    ggml_type qtype);
 
 } // namespace berts

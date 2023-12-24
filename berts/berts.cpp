@@ -98,4 +98,10 @@ ggml_tensor *eval(berts_context *ctx,
     return internal::eval(ctx, tokens, segments);
 }
 
+bool model_quantize(const std::string &input_path,
+                    const std::string &output_path,
+                    ggml_type qtype) {
+    return berts_model_quantize(input_path.c_str(), output_path.c_str(), qtype);
+}
+
 } // namespace berts
