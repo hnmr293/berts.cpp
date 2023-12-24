@@ -30,8 +30,8 @@ MK_CXXFLAGS = -std=c++23 -fPIC
 # avoid w64devkit bug
 MK_CPPFLAGS += -fno-rtti
 
-ifdef BERT_USE_FMTLIB_FMT
-MK_CPPFLAGS += -DBERT_USE_FMTLIB_FMT
+ifdef BERTS_USE_FMTLIB_FMT
+MK_CPPFLAGS += -DBERTS_USE_FMTLIB_FMT
 MK_LDFLAGS += -lfmt
 endif
 
