@@ -59,98 +59,32 @@ BERTS_KEY_BERT_ENC_N_O_B = KEY_N('o_b')
 BERTS_KEY_BERT_ENC_N_LN_OUT_W = KEY_N('ln_out_w')
 BERTS_KEY_BERT_ENC_N_LN_OUT_B = KEY_N('ln_out_b')
 
-#TEXT = "clip.text"
-#VISION = "clip.vision"
-#
-#def k(raw_key: str, arch: str) -> str:
-#    return raw_key.format(arch=arch)
-#
-#def should_skip_tensor(name: str, text_only: bool, vision_only: bool) -> bool:
-#    if name in (
-#        "logit_scale",
-#        "text_model.embeddings.position_ids",
-#        "vision_model.embeddings.position_ids",
-#    ):
-#        return True
-#    
-#    if text_only and name.startswith("v"):
-#        return True
-#    
-#    if vision_only and name.startswith("t"):
-#        return True
-#    
-#    return False
-#
-#def get_tensor_name(name: str) -> str:
-#    if "projection" in name:
-#        return name
-#    
-#    return name.replace("text_model", "t").replace("vision_model", "v").replace("encoder.layers", "blk").replace("embeddings.", "").replace("_proj", "").replace("self_attn.", "attn_").replace("layer_norm", "ln").replace("layernorm", "ln").replace("mlp.fc1", "ffn_down").replace("mlp.fc2", "ffn_up").replace("embedding", "embd").replace("final", "post").replace("layrnorm", "ln")
-#
-#
-#def bytes_to_unicode():
-#    """
-#    Returns list of utf-8 byte and a corresponding list of unicode strings.
-#    The reversible bpe codes work on unicode strings.
-#    This means you need a large # of unicode characters in your vocab if you want to avoid UNKs.
-#    When you're at something like a 10B token dataset you end up needing around 5K for decent coverage.
-#    This is a signficant percentage of your normal, say, 32K bpe vocab.
-#    To avoid that, we want lookup tables between utf-8 bytes and unicode strings.
-#    And avoids mapping to whitespace/control characters the bpe code barfs on.
-#    """
-#    bs = (
-#        list(range(ord("!"), ord("~") + 1))
-#        + list(range(ord("¡"), ord("¬") + 1))
-#        + list(range(ord("®"), ord("ÿ") + 1))
-#    )
-#    cs = bs[:]
-#    n = 0
-#    for b in range(2**8):
-#        if b not in bs:
-#            bs.append(b)
-#            cs.append(2**8 + n)
-#            n += 1
-#    cs = [chr(n) for n in cs]
-#    return dict(zip(bs, cs))
-
 def parse_args():
     ap = argparse.ArgumentParser(prog='convert_hf_to_gguf.py')
-    ap.add_argument('-i', '--input-path', help='Path to model directory cloned from HF Hub', required=True)
+    ap.add_argument('-i', '--input-model', help='Repo ID of the model', required=True)
     ap.add_argument('-o', '--output-path', help='Path to save GGUF file', required=True)
+    ap.add_argument('--use-f32', action='store_true', default=False, help='Use f32 instead of f16')
+    ap.add_argument('--cache-dir', default=None, help='model cache dir')
 
     args = ap.parse_args()
     return args
 
-def load_diffusers(path: str) -> tuple[BertTokenizer, BertModel]:
-    tokenizer = BertTokenizer.from_pretrained(path)
-    model = BertModel.from_pretrained(path)
+def load_diffusers(repo_id: str, cache_dir: str|None) -> tuple[BertTokenizer, BertModel]:
+    tokenizer = BertTokenizer.from_pretrained(repo_id, cache_dir=cache_dir)
+    model = BertModel.from_pretrained(repo_id, cache_dir=cache_dir)
     return tokenizer, model
 
-def load_hparams(path: str):
-    with open(path, 'r', encoding='utf-8') as io:
-        hparams = json.load(io)
-    return hparams
-
-def load_vocab(path: str):
-    with open(path, 'r', encoding='utf-8') as io:
-        vocab = io.readlines()
-    return vocab
-
-def convert(input_path: str, output_path: str):
+def convert(repo_id: str, cache_dir: str|None, output_path: str):
     print('start quantization')
     
-    tokenizer, model = load_diffusers(input_path)
+    tokenizer, model = load_diffusers(repo_id, cache_dir)
     config: BertConfig = model.config
 
-    print(f'model loaded: {input_path}')
+    print(f'model loaded: {repo_id}')
     
     w = gguf.GGUFWriter(output_path, arch='BERT')
 
-    model_name = config.name_or_path
-    if model_name is None or len(model_name) == 0:
-        model_name = os.path.basename(input_path)
-    w.add_name(model_name)
-
+    w.add_name(repo_id)
     w.add_custom_alignment(w.data_alignment) # if omitted, writer never writes "general.alignment"
 
     print(f'''
@@ -175,7 +109,12 @@ def convert(input_path: str, output_path: str):
     w.add_uint32(BERTS_KEY_HPARAM_HIDDEN_ACT, 0) # GeLU
     assert model.config.hidden_act == 'gelu'
     
-    w.add_file_type(1) # f16
+    ftype = 1 # f16
+    if args.use_f32:
+        ftype = 0 # f32
+    ftype_str = ['f32', 'f16'][ftype]
+    
+    w.add_file_type(ftype)
 
     print('writing vocab...')
 
@@ -208,7 +147,7 @@ def convert(input_path: str, output_path: str):
   unused = {unused}
 '''.strip())
 
-    print('converting to f16...')
+    print('converting...')
     
     total_size_org = 0
     total_size_new = 0
@@ -219,7 +158,7 @@ def convert(input_path: str, output_path: str):
         size_org = tensor.nbytes
         
         q = False
-        if n_dims == 2:
+        if ftype != 0 and n_dims == 2:
             if key[-7:] == '.weight':
                 q = True
         
@@ -257,6 +196,7 @@ quantized size = {total_size_new/1024/1024:.1f} MiB
 
 if __name__ == '__main__':
     args = parse_args()
-    input_path = args.input_path
+    repo_id = args.input_model
+    cache_dir = args.cache_dir
     output_path = args.output_path
-    convert(input_path, output_path)
+    convert(repo_id, cache_dir, output_path)
