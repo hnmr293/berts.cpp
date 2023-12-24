@@ -1,8 +1,11 @@
 BUILD_TARGET = \
-	$(STATIC_LIB_NAME) \
-	$(DYNAMIC_LIB_NAME) \
-	main \
-	main_d
+	$(STATIC_LIB) \
+	$(DYNAMIC_LIB)
+
+EXAMPLES = \
+	quant
+
+BUILD_TARGET += $(EXAMPLES) $(addsuffix _d,$(EXAMPLES))
 
 default: $(BUILD_TARGET)
 
@@ -77,10 +80,10 @@ else
 DSO_EXT := .dll
 endif
 
-STATIC_LIB_NAME := $(LIB_PRE)berts$(SO_EXT)
-DYNAMIC_LIB_NAME := $(LIB_PRE)berts$(DSO_EXT)
-STAITC_LIB_GGML := $(LIB_PRE)ggml$(SO_EXT)
-STAITC_LIB_GGML_D := $(LIB_PRE)ggml_d$(SO_EXT)
+STATIC_LIB := ../lib/$(LIB_PRE)berts$(SO_EXT)
+DYNAMIC_LIB := ../lib/$(LIB_PRE)berts$(DSO_EXT)
+STAITC_LIB_GGML := ../lib/$(LIB_PRE)ggml$(SO_EXT)
+STAITC_LIB_GGML_D := ../lib/$(LIB_PRE)ggml_d$(SO_EXT)
 
 #
 # cuBLAS
@@ -130,21 +133,22 @@ log.o: models/log.cpp models/log.hpp $(COMMON_HEADERS)
 
 clean:
 	rm -rf *.o *.lib *.so *.dll *.exe
+	rm -f ../lib/libberts.a ../lib/berts.a ../lib/libberts.lib ../lib/berts.lib ../lib/libberts.so ../lib/berts.so ../lib/libberts.dll ../lib/berts.dll
 
 OBJS += berts.o gguf.o bert.o quantize.o internal.o log.o 
 
-$(STATIC_LIB_NAME): $(OBJS)
+$(STATIC_LIB): $(OBJS)
 	ar rcs $@ $^
 
-$(DYNAMIC_LIB_NAME): $(OBJS)
+$(DYNAMIC_LIB): $(OBJS)
 	$(CXX) $(CXXFLAGS) -shared -fPIC -o $@ $^ $(LDFLAGS)
 
 #
 # examples
 #
 
-main: examples/main.cpp $(COMMON_HEADERS) $(STATIC_LIB_NAME) ../lib/$(STAITC_LIB_GGML)
-	$(CXX) $(CXXFLAGS) $(filter-out %.h %.hpp,$^) -o $@ $(LDFLAGS)
+quant: examples/quant.cpp   $(COMMON_HEADERS) $(STATIC_LIB)
+	$(CXX) $(CXXFLAGS) $(filter-out %.h %.hpp,$^) $(STAITC_LIB_GGML)   -o $@ $(LDFLAGS)
 
-main_d: examples/main.cpp $(COMMON_HEADERS) $(STATIC_LIB_NAME) ../lib/$(STAITC_LIB_GGML_D)
-	$(CXX) $(CXXFLAGS) $(filter-out %.h %.hpp,$^) -o $@ $(LDFLAGS)
+quant_d: examples/quant.cpp $(COMMON_HEADERS) $(STATIC_LIB)
+	$(CXX) $(CXXFLAGS) $(filter-out %.h %.hpp,$^) $(STAITC_LIB_GGML_D) -o $@ $(LDFLAGS)

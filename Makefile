@@ -117,3 +117,4 @@ clean:
 	make clean -C berts
 	rm -rf $(GGML_BUILD_DIR)
 	rm -rf $(GGML_BUILD_DIR_D)
+	rm -f lib/*.a lib/*.lib lib/*.so lib/*.dll
