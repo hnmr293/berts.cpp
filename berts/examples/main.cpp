@@ -7,15 +7,15 @@ int main() {
     berts_set_log_level(BERTS_LOG_ALL);
 
     const char *model_path = ".gguf/bert-base-cased.gguf";
-
-    auto ctx = berts_load_from_file(model_path);
-
-    if (!ctx) {
-        std::cout << "fail to open base model" << std::endl;
-        return 0;
-    }
     
-    berts_free(ctx);
+    //auto ctx = berts_load_from_file(model_path);
+    //
+    //if (!ctx) {
+    //    std::cout << "fail to open base model" << std::endl;
+    //    return 0;
+    //}
+    //
+    //berts_free(ctx);
 
     const char *q8_path = ".gguf/bert-base-cased_q8.gguf";
 
