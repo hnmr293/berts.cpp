@@ -1,5 +1,6 @@
 #include "berts/models/bert.hpp"
 
+#include <algorithm>
 #include <array>
 #include <cmath>
 #include <cstring>
@@ -48,20 +49,20 @@ static inline ggml_tensor *tensor(ggml_context *ctx, const char *key) {
     if (!t) {
         log::error(berts::fmt("failed to read tensor: {}", key));
     }
+    log::debug(berts::fmt("  store {}", key));
     return t;
 }
 
-static inline ggml_tensor *tensor_n(ggml_context *ctx, const char *key, int n) {
-    std::string msg = berts::fmt(key, n);
-    return tensor(ctx, msg.c_str());
-}
-
 bool model::init_weight(berts_context *ctx) {
+    log::info("initializing weights");
+
     if (!check_model(ctx)) {
         return false;
     }
 
     auto ggml = get_ggml_context(ctx);
+
+    std::vector<std::string> stored;
 
 #define GET_TENSOR(dest, key)         \
     do {                              \
@@ -69,15 +70,19 @@ bool model::init_weight(berts_context *ctx) {
         if (!v) {                     \
             return false;             \
         }                             \
+        stored.emplace_back((key));   \
         dest = v;                     \
     } while (0)
 
 #define GET_TENSOR_N(dest, key, n)           \
     do {                                     \
-        auto v = tensor_n(ggml, (key), (n)); \
+        std::string name =                   \
+            berts::fmt((key), (n));          \
+        auto v = tensor(ggml, name.c_str()); \
         if (!v) {                            \
             return false;                    \
         }                                    \
+        stored.push_back(name);              \
         dest = v;                            \
     } while (0)
 
@@ -110,6 +115,20 @@ bool model::init_weight(berts_context *ctx) {
         GET_TENSOR_N(layer.ln_out_w, BERTS_KEY_BERT_ENC_N_LN_OUT_W, n);
         GET_TENSOR_N(layer.ln_out_b, BERTS_KEY_BERT_ENC_N_LN_OUT_B, n);
     }
+
+    // print unused tensors
+    log::when(log::log_level::info, [&stored, ctx]() {
+        const auto gguf = get_gguf_context(ctx);
+        const int n_tensors = gguf_get_n_tensors(gguf);
+        for (int i = 0; i < n_tensors; ++i) {
+            const std::string tensor_name{gguf_get_tensor_name(gguf, i)};
+            if (std::find(stored.begin(), stored.end(), tensor_name) == stored.end()) {
+                if (tensor_name != BERTS_KEY_BERT_VOCAB_SIZE && tensor_name != BERTS_KEY_BERT_VOCAB_DATA) {
+                    log::info(berts::fmt("  unused {} {}", i, tensor_name));
+                }
+            }
+        }
+    });
 
     return true;
 }
@@ -148,7 +167,7 @@ bool model::load_vocab(berts_context *ctx) {
         log::error(berts::fmt("invalid type of vocab_data: {}", (int)vocab_data->type));
         return false;
     }
-    
+
     const int64_t vocab_count = vocab_size->ne[0];
     auto token_lengths = static_cast<const int32_t *>(vocab_size->data);
     const auto data = static_cast<const char *>(vocab_data->data);
