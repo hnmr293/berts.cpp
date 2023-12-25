@@ -9,8 +9,23 @@ using namespace berts;
 struct vocab {
     std::vector<std::string> id_to_token;
     std::unordered_map<std::string, bert_token_t> token_to_id;
-    vocab() {}
-    vocab(size_t n) {
+    bert_token_t cls_id;
+    bert_token_t mask_id;
+    bert_token_t pad_id;
+    bert_token_t sep_id;
+    bert_token_t unk_id;
+
+    vocab()
+        : id_to_token()
+        , token_to_id()
+        , cls_id(0)
+        , mask_id(0)
+        , pad_id(0)
+        , sep_id(0)
+        , unk_id(0) {}
+
+    vocab(size_t n)
+        : vocab() {
         this->id_to_token.reserve(n);
         this->token_to_id.reserve(n);
     }
@@ -79,6 +94,45 @@ bool get_hparams(berts_context *ctx, hparams *params) {
     }
 
     return true;
+}
+
+bert_token_t get_cls_id(berts_context *ctx) {
+    return ctx->vocab.cls_id;
+}
+
+void set_cls_id(berts_context *ctx, bert_token_t id) {
+    ctx->vocab.cls_id = id;
+}
+
+bert_token_t get_mask_id(berts_context *ctx) {
+    return ctx->vocab.mask_id;
+}
+
+void set_mask_id(berts_context *ctx, bert_token_t id) {
+    ctx->vocab.mask_id = id;
+}
+
+bert_token_t get_pad_id(berts_context *ctx) {
+    return ctx->vocab.pad_id;
+}
+void set_pad_id(berts_context *ctx, bert_token_t id) {
+    ctx->vocab.pad_id = id;
+}
+
+bert_token_t get_sep_id(berts_context *ctx) {
+    return ctx->vocab.sep_id;
+}
+
+void set_sep_id(berts_context *ctx, bert_token_t id) {
+    ctx->vocab.sep_id = id;
+}
+
+bert_token_t get_unk_id(berts_context *ctx) {
+    return ctx->vocab.unk_id;
+}
+
+void set_unk_id(berts_context *ctx, bert_token_t id) {
+    ctx->vocab.unk_id = id;
 }
 
 std::string id_to_token(berts_context *ctx, bert_token_t token_id) {

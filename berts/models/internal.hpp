@@ -50,6 +50,21 @@ ggml_context *get_ggml_context(berts_context *ctx);
 
 bool get_hparams(berts_context *ctx, hparams *params);
 
+bert_token_t get_cls_id(berts_context *ctx);
+void set_cls_id(berts_context *ctx, bert_token_t id);
+
+bert_token_t get_mask_id(berts_context *ctx);
+void set_mask_id(berts_context *ctx, bert_token_t id);
+
+bert_token_t get_pad_id(berts_context *ctx);
+void set_pad_id(berts_context *ctx, bert_token_t id);
+
+bert_token_t get_sep_id(berts_context *ctx);
+void set_sep_id(berts_context *ctx, bert_token_t id);
+
+bert_token_t get_unk_id(berts_context *ctx);
+void set_unk_id(berts_context *ctx, bert_token_t id);
+
 std::string id_to_token(berts_context *ctx, bert_token_t token_id);
 
 bert_token_t token_to_id(berts_context *ctx, const std::string &token);
