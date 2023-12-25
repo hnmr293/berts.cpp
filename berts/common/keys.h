@@ -64,7 +64,7 @@
 #define BERTS_KEY_TOKENIZER_NEVER_SPLIT "berts.never_split"
 
 // type: bool *optional, defaults to `true`
-#define BERTS_KEY_TOKENIZER_STRIP_ACCENT "berts.tokenize_chinese_chars"
+#define BERTS_KEY_TOKENIZER_CHINESE_CHARS "berts.tokenize_chinese_chars"
 
 // type: bool *optional, defaults to the value of `BERTS_KEY_TOKENIZER_DO_LOWER_CASE`
 #define BERTS_KEY_TOKENIZER_STRIP_ACCENT "berts.strip_accent"
