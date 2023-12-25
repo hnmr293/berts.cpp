@@ -5,7 +5,7 @@
 
 using namespace berts::unicode;
 
-namespace berts::vocab {
+namespace berts::trie {
 
 struct trie_node;
 
@@ -183,4 +183,4 @@ bert_token_t search_trie_substr(const trie_node *n, const ustr &s, ustr &found, 
     return id;
 }
 
-} // namespace berts::vocab
+} // namespace berts::trie

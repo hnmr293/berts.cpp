@@ -203,23 +203,23 @@ static bool basic_tokenize(const std::string &text,
 }
 
 static bool wordpiece_tokenize(const std::vector<ustr> &words,
-                               const vocab::trie *vocab,
+                               const trie::trie *vocab,
                                std::vector<bert_token_t> &result,
                                const berts_tokenize_info &cond) {
     log::debug("start wordpiece_tokenize");
 
-    auto root_node = vocab::trie_root(vocab);
-    auto cont_node = vocab::search_node(vocab, ustr{"##", 2});
+    auto root_node = trie::trie_root(vocab);
+    auto cont_node = trie::search_node(vocab, ustr{"##", 2});
     if (!cont_node) {
         log::error("corrupted vocab: \"##\" is not found");
         return false;
     }
-    
+
     for (const auto &word : words) {
         ustr found{}, rest{word};
         while (!rest.empty()) {
             auto root = root_node;
-            const auto id = vocab::search_trie_substr(root, rest, found, rest);
+            const auto id = trie::search_trie_substr(root, rest, found, rest);
             if (id != (bert_token_t)-1) {
                 // found
                 result.push_back(id);
@@ -244,7 +244,7 @@ static bool wordpiece_tokenize(const std::vector<ustr> &words,
 }
 
 bool tokenize(const std::string &text,
-              const vocab::trie *vocab,
+              const trie::trie *vocab,
               const std::unordered_set<std::string> &never_split,
               std::vector<bert_token_t> &result,
               const berts_tokenize_info &cond) {

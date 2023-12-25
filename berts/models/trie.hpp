@@ -5,7 +5,7 @@
 #include "berts/berts.h"
 #include "berts/models/unicode.hpp"
 
-namespace berts::vocab {
+namespace berts::trie {
 
 struct trie;
 struct trie_node;
@@ -59,4 +59,4 @@ bert_token_t search_trie_substr(const trie_node *n,
                                 unicode::ustr &found,
                                 unicode::ustr &rest);
 
-} // namespace berts::vocab
+} // namespace berts::trie
