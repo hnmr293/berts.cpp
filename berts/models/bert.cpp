@@ -6,11 +6,12 @@
 #include <cstring>
 #include <ranges>
 #include "berts/common/keys.h"
+#include "berts/models/context.hpp"
 #include "berts/models/utils.hpp"
 
-namespace berts::bert {
+using namespace berts::models;
 
-using namespace berts::internal;
+namespace berts::bert {
 
 #define KEY_PREFIX "berts.bert."
 #define KEY(s) KEY_PREFIX #s
@@ -74,7 +75,7 @@ bool model::init_weight(berts_context *ctx) {
 #define GET_TENSOR_N(dest, key, n)           \
     do {                                     \
         std::string name =                   \
-            berts::fmt::fmt((key), (n));          \
+            berts::fmt::fmt((key), (n));     \
         auto v = tensor(ggml, name.c_str()); \
         if (!v) {                            \
             return false;                    \
@@ -200,7 +201,7 @@ bool model::load_vocab(berts_context *ctx) {
         std::string token{&data[p], token_len};
         p += token_len;
 
-        internal::add_token(ctx, token);
+        models::add_token(ctx, token);
     }
 
     if (p != vocab_data->ne[0]) {

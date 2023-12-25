@@ -1,19 +1,20 @@
-#include "berts/models/internal.hpp"
+#include "berts/models/context.hpp"
 #include <cmath>
 #include <memory>
 #include "berts/common/log.hpp"
 #include "berts/models/utils.hpp"
 
 using namespace berts;
+using namespace berts::models;
 
 struct berts_context {
-    internal::hparams hparams;
-    std::unique_ptr<internal::model> model;
+    hparams hparams;
+    std::unique_ptr<model> model;
     gguf_context *gguf;
     ggml_context *ctx;
     bool initialized_success;
 
-    berts_context(const internal::hparams &hparams, internal::model *model, gguf_context *gguf, ggml_context *ctx)
+    berts_context(const struct hparams &hparams, struct model *model, gguf_context *gguf, ggml_context *ctx)
         : hparams(hparams)
         , model(model)
         , gguf(gguf)
@@ -27,7 +28,7 @@ struct berts_context {
     }
 };
 
-namespace berts::internal {
+namespace berts::models {
 
 berts_context *new_context(const hparams &hparams, model *model, gguf_context *gguf, ggml_context *ctx) {
     auto bert = new berts_context{hparams, model, gguf, ctx};
@@ -90,4 +91,4 @@ ggml_tensor *model::eval(berts_context *ctx, const std::vector<bert_token_t> &to
     return this->eval(ctx, tokens, segments);
 }
 
-} // namespace berts::internal
+} // namespace berts::models

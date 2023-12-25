@@ -1,10 +1,10 @@
 #include "berts/berts.h"
 #include "berts/berts.hpp"
 #include "berts/models/gguf.hpp"
-#include "berts/models/internal.hpp"
+#include "berts/models/context.hpp"
 #include "berts/common/log.hpp"
 
-namespace internal = berts::internal;
+namespace models = berts::models;
 namespace gguf = berts::gguf;
 namespace log = berts::log;
 
@@ -49,7 +49,7 @@ void berts_set_log_file(FILE *file) {
 }
 
 void berts_free(berts_context *ctx) {
-    internal::free_context(ctx);
+    models::free_context(ctx);
 }
 
 berts_context *berts_load_from_file(const char *path) {
@@ -98,7 +98,7 @@ ggml_tensor *berts_eval(berts_context *ctx,
     std::vector<bert_segment_t> segm_vec(token_count);
     std::copy(segments, segments + token_count, segm_vec.data());
 
-    return internal::eval(ctx, token_vec, segm_vec);
+    return models::eval(ctx, token_vec, segm_vec);
 }
 
 namespace berts {
@@ -109,13 +109,13 @@ namespace berts {
 
 ggml_tensor *eval(berts_context *ctx,
                   const std::vector<bert_token_t> &tokens) {
-    return internal::eval(ctx, tokens);
+    return models::eval(ctx, tokens);
 }
 
 ggml_tensor *eval(berts_context *ctx,
                   const std::vector<bert_token_t> &tokens,
                   const std::vector<bert_segment_t> &segments) {
-    return internal::eval(ctx, tokens, segments);
+    return models::eval(ctx, tokens, segments);
 }
 
 bool model_quantize(const std::string &input_path,

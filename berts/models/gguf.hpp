@@ -3,7 +3,7 @@
 #include <cstdint>
 #include <istream>
 #include <string>
-#include "berts/models/internal.hpp"
+#include "berts/models/context.hpp"
 
 namespace berts::gguf {
 

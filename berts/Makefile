@@ -149,7 +149,7 @@ trie.o: tokenizers/trie.cpp tokenizers/trie.hpp $(COMMON_HEADERS)
 unicode.o: tokenizers/unicode.cpp tokenizers/unicode.hpp $(COMMON_HEADERS)
 	$(CXX) $(CXXFLAGS) -c $< -o $@
 
-internal.o: models/internal.cpp models/internal.hpp $(COMMON_HEADERS)
+context.o: models/context.cpp models/context.hpp $(COMMON_HEADERS)
 	$(CXX) $(CXXFLAGS) -c $< -o $@
 
 log.o: common/log.cpp common/log.hpp $(COMMON_HEADERS)
@@ -159,7 +159,7 @@ clean:
 	rm -rf *.o *.lib *.so *.dll *.exe
 	rm -f ../lib/libberts.a ../lib/berts.a ../lib/libberts.lib ../lib/berts.lib ../lib/libberts.so ../lib/berts.so ../lib/libberts.dll ../lib/berts.dll
 
-OBJS += berts.o gguf.o bert.o quantize.o tokenizer.o trie.o unicode.o internal.o log.o 
+OBJS += berts.o gguf.o bert.o quantize.o tokenizer.o trie.o unicode.o context.o log.o 
 
 $(STATIC_LIB): $(OBJS)
 	ar rcs $@ $^

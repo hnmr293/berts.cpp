@@ -6,7 +6,7 @@
 #include "berts/berts.h"
 #include "berts/common/log.hpp"
 
-namespace berts::internal {
+namespace berts::models {
 
 struct hparams {
     bert_type architecture;
@@ -99,4 +99,4 @@ inline ggml_tensor *bert_layer_norm(ggml_context *ctx, ggml_tensor *x, ggml_tens
                     ggml_repeat(ctx, ln_b, x));
 }
 
-} // namespace berts::internal
+} // namespace berts::models

@@ -6,8 +6,8 @@
 #include <regex>
 #include "berts/berts.h"
 #include "berts/common/log.hpp"
+#include "berts/models/context.hpp"
 #include "berts/models/gguf.hpp"
-#include "berts/models/internal.hpp"
 #include "berts/models/utils.hpp"
 
 using namespace berts;
@@ -82,8 +82,8 @@ bool berts_model_quantize(const char *input_path,
 
     log::info("model loaded: {}", input_path);
 
-    auto gguf_src = internal::get_gguf_context(ctx);
-    auto ggml_src = internal::get_ggml_context(ctx);
+    auto gguf_src = models::get_gguf_context(ctx);
+    auto ggml_src = models::get_ggml_context(ctx);
 
     gguf_ctx gguf_dst{gguf_init_empty()};
 

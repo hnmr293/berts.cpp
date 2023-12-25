@@ -1,7 +1,7 @@
 #pragma once
 
 #include <vector>
-#include "berts/models/internal.hpp"
+#include "berts/models/context.hpp"
 
 namespace berts::bert {
 
@@ -35,7 +35,7 @@ struct transformer_block {
     ggml_tensor *ln_out_b = nullptr;
 };
 
-struct model : public internal::model {
+struct model : public models::model {
     ggml_tensor *token_embedding = nullptr;
     ggml_tensor *segment_embedding = nullptr;
     ggml_tensor *position_embedding = nullptr;
@@ -44,7 +44,7 @@ struct model : public internal::model {
     std::vector<transformer_block> layers;
     
     model(ggml_type type)
-        : berts::internal::model(type) {}
+        : berts::models::model(type) {}
     
     bool init_weight(berts_context *ctx) override;
     

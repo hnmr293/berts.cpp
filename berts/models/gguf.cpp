@@ -6,10 +6,10 @@
 #include "berts/common/keys.h"
 #include "berts/common/log.hpp"
 #include "berts/models/bert.hpp"
-#include "berts/models/internal.hpp"
+#include "berts/models/context.hpp"
 #include "berts/models/utils.hpp"
 
-namespace internal = berts::internal;
+namespace models = berts::models;
 
 namespace berts::gguf {
 
@@ -252,7 +252,7 @@ berts_context *load_from_file(const std::string &path) {
         }
     }
 
-    internal::hparams hparams{};
+    models::hparams hparams{};
     hparams.architecture = static_cast<bert_type>(gguf_u32(gguf, BERTS_KEY_HPARAM_BERT_TYPE));
     hparams.vocab_size = gguf_u32(gguf, BERTS_KEY_HPARAM_VOCAB_SIZE);
     hparams.hidden_dim = gguf_u32(gguf, BERTS_KEY_HPARAM_HIDDEN_DIM);
@@ -302,7 +302,7 @@ berts_context *load_from_file(const std::string &path) {
         return nullptr;
     }
 
-    internal::model *model;
+    models::model *model;
 
     // create model
     switch (hparams.architecture) {
@@ -316,7 +316,7 @@ berts_context *load_from_file(const std::string &path) {
         return nullptr;
     }
 
-    auto ctx = internal::new_context(hparams, model, gg.gguf.release(), ggml.release());
+    auto ctx = models::new_context(hparams, model, gg.gguf.release(), ggml.release());
     return ctx;
 }
 
