@@ -40,13 +40,13 @@ typedef uint32_t bert_segment_t;
 // general
 //
 
-const char *berts_version(void);
+BERTS_API const char *berts_version(void);
 
-int berts_version_major(void);
+BERTS_API int berts_version_major(void);
 
-int berts_version_minor(void);
+BERTS_API int berts_version_minor(void);
 
-int berts_version_patch(void);
+BERTS_API int berts_version_patch(void);
 
 //
 // logging
@@ -62,13 +62,13 @@ enum berts_log_level {
     BERTS_LOG_QUIET = 10,
 };
 
-berts_log_level berts_get_log_level(void);
+BERTS_API berts_log_level berts_get_log_level(void);
 
-void berts_set_log_level(berts_log_level level);
+BERTS_API void berts_set_log_level(berts_log_level level);
 
-FILE *berts_get_log_file(void);
+BERTS_API FILE *berts_get_log_file(void);
 
-void berts_set_log_file(FILE *file);
+BERTS_API void berts_set_log_file(FILE *file);
 
 //
 // hparams
@@ -126,32 +126,40 @@ struct berts_tokenize_info {
 
     // split words at a punctuation
     bool split_on_punc;
-
-    // [UNK] token id
-    bert_token_t unknown_token_id;
 };
 
-void berts_init_tokenize_info_default(berts_tokenize_info *info, bert_token_t unknown_token_id);
+BERTS_API void berts_init_tokenize_info_default(berts_tokenize_info *info);
 
-void berts_init_tokenize_info_no_basic(berts_tokenize_info *info, bert_token_t unknown_token_id);
+BERTS_API void berts_init_tokenize_info_no_basic(berts_tokenize_info *info);
+
+/// @brief tokenize text
+/// @param out size >= strlen(text)
+/// @return a number of bert_token_t, or (size_t)-1 if failed
+BERTS_API size_t berts_tokenize(
+    berts_context *ctx,
+    const char *text,
+    const berts_tokenize_info *cond,
+    bert_token_t *out);
 
 //
 // inference
 //
 
-ggml_tensor *berts_eval(berts_context *ctx,
-                        const bert_token_t *tokens,
-                        const bert_segment_t *segments,
-                        size_t token_count);
+BERTS_API ggml_tensor *berts_eval(
+    berts_context *ctx,
+    const bert_token_t *tokens,
+    const bert_segment_t *segments,
+    size_t token_count);
 
 //
 // quantization
 //
 
 /// @brief quantize {input_path} model to {output_path}
-bool berts_model_quantize(const char *input_path,
-                          const char *output_path,
-                          ggml_type qtype);
+BERTS_API bool berts_model_quantize(
+    const char *input_path,
+    const char *output_path,
+    ggml_type qtype);
 
 #ifdef __cplusplus
 }
