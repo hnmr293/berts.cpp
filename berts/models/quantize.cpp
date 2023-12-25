@@ -7,7 +7,7 @@
 #include "berts/berts.h"
 #include "berts/models/gguf.hpp"
 #include "berts/models/internal.hpp"
-#include "berts/models/log.hpp"
+#include "berts/common/log.hpp"
 #include "berts/models/utils.hpp"
 
 using namespace berts;

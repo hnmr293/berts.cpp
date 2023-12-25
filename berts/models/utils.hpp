@@ -3,7 +3,7 @@
 #include <iterator>
 #include <string>
 #include "berts/berts.h"
-#include "berts/models/log.hpp"
+#include "berts/common/log.hpp"
 #include "ggml/ggml.h"
 
 #ifdef BERTS_USE_FMTLIB_FMT

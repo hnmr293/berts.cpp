@@ -5,7 +5,7 @@
 #include <cmath>
 #include <cstring>
 #include <ranges>
-#include "berts/models/keys.h"
+#include "berts/common/keys.h"
 #include "berts/models/utils.hpp"
 
 namespace berts::bert {

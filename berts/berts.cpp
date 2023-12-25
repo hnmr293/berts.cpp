@@ -2,7 +2,7 @@
 #include "berts/berts.hpp"
 #include "berts/models/gguf.hpp"
 #include "berts/models/internal.hpp"
-#include "berts/models/log.hpp"
+#include "berts/common/log.hpp"
 
 namespace internal = berts::internal;
 namespace gguf = berts::gguf;

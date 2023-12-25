@@ -5,8 +5,8 @@
 #include "berts/berts.h"
 #include "berts/models/bert.hpp"
 #include "berts/models/internal.hpp"
-#include "berts/models/keys.h"
-#include "berts/models/log.hpp"
+#include "berts/common/keys.h"
+#include "berts/common/log.hpp"
 #include "berts/models/utils.hpp"
 
 namespace internal = berts::internal;

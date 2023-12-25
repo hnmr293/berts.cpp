@@ -152,7 +152,7 @@ unicode.o: models/unicode.cpp models/unicode.hpp $(COMMON_HEADERS)
 internal.o: models/internal.cpp models/internal.hpp $(COMMON_HEADERS)
 	$(CXX) $(CXXFLAGS) -c $< -o $@
 
-log.o: models/log.cpp models/log.hpp $(COMMON_HEADERS)
+log.o: common/log.cpp common/log.hpp $(COMMON_HEADERS)
 	$(CXX) $(CXXFLAGS) -c $< -o $@
 
 clean:
