@@ -3,7 +3,7 @@
 #include <memory>
 #include "berts/models/log.hpp"
 #include "berts/models/utils.hpp"
-#include "berts/models/vocab.hpp"
+#include "berts/models/trie.hpp"
 
 using namespace berts;
 

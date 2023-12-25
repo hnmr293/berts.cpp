@@ -4,7 +4,7 @@
 #include <unordered_set>
 #include <vector>
 #include "berts/berts.h"
-#include "berts/models/vocab.hpp"
+#include "berts/models/trie.hpp"
 
 namespace berts::tokenizer {
 

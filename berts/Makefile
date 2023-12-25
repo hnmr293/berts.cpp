@@ -143,7 +143,7 @@ quantize.o: models/quantize.cpp $(COMMON_HEADERS)
 tokenizer.o: models/tokenizer.cpp models/tokenizer.hpp $(COMMON_HEADERS)
 	$(CXX) $(CXXFLAGS) -c $< -o $@
 
-vocab.o: models/vocab.cpp models/vocab.hpp $(COMMON_HEADERS)
+trie.o: models/trie.cpp models/trie.hpp $(COMMON_HEADERS)
 	$(CXX) $(CXXFLAGS) -c $< -o $@
 
 unicode.o: models/unicode.cpp models/unicode.hpp $(COMMON_HEADERS)
@@ -159,7 +159,7 @@ clean:
 	rm -rf *.o *.lib *.so *.dll *.exe
 	rm -f ../lib/libberts.a ../lib/berts.a ../lib/libberts.lib ../lib/berts.lib ../lib/libberts.so ../lib/berts.so ../lib/libberts.dll ../lib/berts.dll
 
-OBJS += berts.o gguf.o bert.o quantize.o tokenizer.o vocab.o unicode.o internal.o log.o 
+OBJS += berts.o gguf.o bert.o quantize.o tokenizer.o trie.o unicode.o internal.o log.o 
 
 $(STATIC_LIB): $(OBJS)
 	ar rcs $@ $^
