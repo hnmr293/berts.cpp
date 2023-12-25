@@ -10,7 +10,7 @@ namespace berts::vocab {
 struct trie;
 struct trie_node;
 
-const trie *build_trie(const std::vector<std::string> &vocab);
+trie *build_trie(const std::vector<std::string> &vocab);
 
 void free_trie(trie *t);
 

@@ -107,7 +107,7 @@ static inline const trie_node *find_substr(const trie_node *n, const ustr &s, us
     return last_found;
 }
 
-const trie *build_trie(const std::vector<std::string> &vocab) {
+trie *build_trie(const std::vector<std::string> &vocab) {
     trie *t = new trie{};
     for (size_t id = 0, n = vocab.size(); id < n; ++id) {
         add_str(t->root.get(), {vocab[id]}, id);
