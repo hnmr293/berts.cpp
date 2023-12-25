@@ -12,27 +12,36 @@ namespace berts {
 // resources
 //
 
-template <typename T, typename Disposer>
-struct unique_ctx {
-    using ctx_type = T;
-    using self_type = unique_ctx<T, Disposer>;
+template <typename T>
+struct noncopyable {
+    noncopyable(const noncopyable &) = delete;
+    T &operator=(const T &) = delete;
 
+  protected:
+    noncopyable() = default;
+    ~noncopyable() = default;
+};
+
+template <typename T, typename Disposer>
+struct unique_ctx : private noncopyable<T> {
+    using ctx_type = Disposer::type;
+    using self_type = T;
+    using inherited = unique_ctx<T, Disposer>;
+
+  protected:
     ctx_type *ctx;
 
+  public:
     unique_ctx()
         : unique_ctx(nullptr) {}
 
     unique_ctx(ctx_type *ctx)
         : ctx(ctx) {}
 
-    unique_ctx(const self_type &) = delete;
-
     unique_ctx(self_type &&other) noexcept
         : ctx(other.ctx) {
         other.ctx = nullptr;
     }
-
-    self_type &operator=(const self_type &) = delete;
 
     self_type &operator=(self_type &&other) noexcept {
         if (this != &other) {
@@ -71,39 +80,53 @@ struct unique_ctx {
 };
 
 struct berts_context_disposer {
-    static void dispose(berts_context *ctx) {
+    using type = berts_context;
+    static void dispose(type *ctx) {
         if (ctx)
             berts_free(ctx);
     }
 };
 
 struct ggml_context_disposer {
-    static void dispose(ggml_context *ctx) {
+    using type = ggml_context;
+    static void dispose(type *ctx) {
         if (ctx)
             ggml_free(ctx);
     }
 };
 
 struct gguf_context_disposer {
-    static void dispose(gguf_context *ctx) {
+    using type = gguf_context;
+    static void dispose(type *ctx) {
         if (ctx)
             gguf_free(ctx);
     }
 };
 
 /// @brief RAII class for berts_context
-struct berts_ctx : public unique_ctx<berts_context, berts_context_disposer> {
+struct berts_ctx : public unique_ctx<berts_ctx, berts_context_disposer> {
     berts_ctx()
         : berts_ctx(nullptr) {}
 
     berts_ctx(berts_context *ctx)
-        : unique_ctx(ctx) { log::debug("berts_init @ {:016x}", (intptr_t)ctx); }
+        : inherited(ctx) {
+        if (ctx) log::debug("berts_init @ {:016x}", (intptr_t)ctx);
+    }
 
-    ~berts_ctx() { log::debug("berts_free @ {:016x}", (intptr_t)ctx); }
+    berts_ctx(self_type &&ctx)
+        : inherited(std::move(ctx)) {}
+    
+    self_type &operator=(self_type&&ctx) {
+        return inherited::operator=(std::move(ctx));
+    }
+
+    ~berts_ctx() {
+        if (ctx) log::debug("berts_free @ {:016x}", (intptr_t)ctx);
+    }
 };
 
 /// @brief RAII class for ggml_context
-struct ggml_ctx : public unique_ctx<ggml_context, ggml_context_disposer> {
+struct ggml_ctx : public unique_ctx<ggml_ctx, ggml_context_disposer> {
     ggml_ctx()
         : ggml_ctx(nullptr) {}
 
@@ -111,13 +134,24 @@ struct ggml_ctx : public unique_ctx<ggml_context, ggml_context_disposer> {
         : unique_ctx(ctx) {}
 
     ggml_ctx(ggml_init_params params)
-        : unique_ctx(ggml_init(params)) { log::debug("ggml_init @ {:016x}", (intptr_t)ctx); }
+        : unique_ctx(ggml_init(params)) {
+        if (ctx) log::debug("ggml_init @ {:016x}", (intptr_t)ctx);
+    }
 
-    ~ggml_ctx() { log::debug("ggml_free @ {:016x}", (intptr_t)ctx); }
+    ggml_ctx(self_type &&ctx)
+        : inherited(std::move(ctx)) {}
+    
+    self_type &operator=(self_type&&ctx) {
+        return inherited::operator=(std::move(ctx));
+    }
+
+    ~ggml_ctx() {
+        if (ctx) log::debug("ggml_free @ {:016x}", (intptr_t)ctx);
+    }
 };
 
 /// @brief RAII class for gguf_context
-struct gguf_ctx : public unique_ctx<gguf_context, gguf_context_disposer> {
+struct gguf_ctx : public unique_ctx<gguf_ctx, gguf_context_disposer> {
     gguf_ctx()
         : gguf_ctx(nullptr) {}
 
@@ -125,12 +159,23 @@ struct gguf_ctx : public unique_ctx<gguf_context, gguf_context_disposer> {
         : unique_ctx(ctx) {}
 
     gguf_ctx(const std::string &path, gguf_init_params params)
-        : unique_ctx(gguf_init_from_file(path.c_str(), params)) { log::debug("gguf_init @ {:016x}", (intptr_t)ctx); }
+        : unique_ctx(gguf_init_from_file(path.c_str(), params)) {
+        if (ctx) log::debug("gguf_init @ {:016x}", (intptr_t)ctx);
+    }
 
     gguf_ctx(const std::string &path, bool no_alloc, ggml_context **ctx)
         : gguf_ctx(path, {.no_alloc = no_alloc, .ctx = ctx}) {}
 
-    ~gguf_ctx() { log::debug("gguf_free @ {:016x}", (intptr_t)ctx); }
+    gguf_ctx(self_type &&ctx)
+        : inherited(std::move(ctx)) {}
+    
+    self_type &operator=(self_type&&ctx) {
+        return inherited::operator=(std::move(ctx));
+    }
+
+    ~gguf_ctx() {
+        if (ctx) log::debug("gguf_free @ {:016x}", (intptr_t)ctx);
+    }
 };
 
 /// @brief RAII class for gguf_context AND ggml_context
@@ -156,9 +201,8 @@ struct gg_ctx {
 
     gg_ctx &operator=(gg_ctx &&other) noexcept {
         if (this != &other) {
-            this->dispose();
-            this->ggml.ctx = other.ggml.release();
-            this->gguf.ctx = other.gguf.release();
+            this->ggml = std::move(other.ggml);
+            this->gguf = std::move(other.gguf);
         }
         return *this;
     }
