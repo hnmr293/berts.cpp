@@ -6,28 +6,7 @@
 #include "berts/common/log.hpp"
 #include "ggml/ggml.h"
 
-#ifdef BERTS_USE_FMTLIB_FMT
-#include <fmt/core.h>
-#else
-#include <format>
-#endif
-
 namespace berts {
-
-//
-// text formatting
-//
-
-// std::v?format is a bit buggy in some systems such as w64devkit
-template <typename... Args>
-std::string fmt(const std::string_view fmt, Args &&...args) {
-#ifdef BERTS_USE_FMTLIB_FMT
-    std::string msg = fmt::vformat(fmt, fmt::make_format_args(args...));
-#else
-    std::string msg = std::vformat(fmt, std::make_format_args(args...));
-#endif
-    return msg;
-}
 
 //
 // resources
@@ -118,9 +97,9 @@ struct berts_ctx : public unique_ctx<berts_context, berts_context_disposer> {
         : berts_ctx(nullptr) {}
 
     berts_ctx(berts_context *ctx)
-        : unique_ctx(ctx) { log::debug(berts::fmt("berts_init @ {:016x}", (intptr_t)ctx)); }
+        : unique_ctx(ctx) { log::debug("berts_init @ {:016x}", (intptr_t)ctx); }
 
-    ~berts_ctx() { log::debug(berts::fmt("berts_free @ {:016x}", (intptr_t)ctx)); }
+    ~berts_ctx() { log::debug("berts_free @ {:016x}", (intptr_t)ctx); }
 };
 
 /// @brief RAII class for ggml_context
@@ -132,9 +111,9 @@ struct ggml_ctx : public unique_ctx<ggml_context, ggml_context_disposer> {
         : unique_ctx(ctx) {}
 
     ggml_ctx(ggml_init_params params)
-        : unique_ctx(ggml_init(params)) { log::debug(berts::fmt("ggml_init @ {:016x}", (intptr_t)ctx)); }
+        : unique_ctx(ggml_init(params)) { log::debug("ggml_init @ {:016x}", (intptr_t)ctx); }
 
-    ~ggml_ctx() { log::debug(berts::fmt("ggml_free @ {:016x}", (intptr_t)ctx)); }
+    ~ggml_ctx() { log::debug("ggml_free @ {:016x}", (intptr_t)ctx); }
 };
 
 /// @brief RAII class for gguf_context
@@ -146,12 +125,12 @@ struct gguf_ctx : public unique_ctx<gguf_context, gguf_context_disposer> {
         : unique_ctx(ctx) {}
 
     gguf_ctx(const std::string &path, gguf_init_params params)
-        : unique_ctx(gguf_init_from_file(path.c_str(), params)) { log::debug(berts::fmt("gguf_init @ {:016x}", (intptr_t)ctx)); }
+        : unique_ctx(gguf_init_from_file(path.c_str(), params)) { log::debug("gguf_init @ {:016x}", (intptr_t)ctx); }
 
     gguf_ctx(const std::string &path, bool no_alloc, ggml_context **ctx)
         : gguf_ctx(path, {.no_alloc = no_alloc, .ctx = ctx}) {}
 
-    ~gguf_ctx() { log::debug(berts::fmt("gguf_free @ {:016x}", (intptr_t)ctx)); }
+    ~gguf_ctx() { log::debug("gguf_free @ {:016x}", (intptr_t)ctx); }
 };
 
 /// @brief RAII class for gguf_context AND ggml_context

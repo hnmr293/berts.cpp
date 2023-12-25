@@ -3,10 +3,10 @@
 #include <array>
 #include <fstream>
 #include "berts/berts.h"
-#include "berts/models/bert.hpp"
-#include "berts/models/internal.hpp"
 #include "berts/common/keys.h"
 #include "berts/common/log.hpp"
+#include "berts/models/bert.hpp"
+#include "berts/models/internal.hpp"
 #include "berts/models/utils.hpp"
 
 namespace internal = berts::internal;
@@ -20,8 +20,7 @@ namespace berts::gguf {
 static inline size_t safe_index(const struct gguf_context *ctx, const std::string &key) {
     auto idx = gguf_find_key(ctx, key.c_str());
     if (idx < 0) {
-        auto msg = berts::fmt("key {0} is not found in gguf", key);
-        log::error(msg);
+        log::error("key {0} is not found in gguf", key);
         GGML_ASSERT(false && "key is not found in gguf");
     }
 
@@ -87,7 +86,7 @@ static inline std::string ftype(uint32_t ftype) {
     }};
 
     if (ftypes.size() <= ftype) {
-        log::error(berts::fmt("unrecognized file type: {0}", ftype));
+        log::error("unrecognized file type: {0}", ftype);
         GGML_ASSERT(false && "unrecognized file type");
     }
 
@@ -123,42 +122,39 @@ static gg_ctx init_gg(const std::string &path, size_t *ctx_size) {
         const auto desc = gguf_str(gguf, "general.description", "");
         const auto license = gguf_str(gguf, "general.license", "");
         const auto type = ftype(gguf_u32(gguf, "general.file_type"));
-        log::info(berts::fmt(
-            "model metadata\n"
-            "  arch: {0}\n"
-            "  quantization_version: {1}\n"
-            "  alignment: {2}\n"
-            "  name: {3}\n"
-            "  author: {4}\n"
-            "  url: {5}\n"
-            "  description: {6}\n"
-            "  license: {7}\n"
-            "  type: {8}",
-            arch,
-            (int32_t)quant_version,
-            (int32_t)align,
-            name,
-            author,
-            url,
-            desc,
-            license,
-            type));
+        log::info("model metadata\n"
+                  "  arch: {0}\n"
+                  "  quantization_version: {1}\n"
+                  "  alignment: {2}\n"
+                  "  name: {3}\n"
+                  "  author: {4}\n"
+                  "  url: {5}\n"
+                  "  description: {6}\n"
+                  "  license: {7}\n"
+                  "  type: {8}",
+                  arch,
+                  (int32_t)quant_version,
+                  (int32_t)align,
+                  name,
+                  author,
+                  url,
+                  desc,
+                  license,
+                  type);
 
         // gguf info
         const auto n_tensors = gguf_get_n_tensors(gguf);
         const auto n_kv = gguf_get_n_kv(gguf);
-        log::info(berts::fmt(
-            "gguf info\n"
-            "  n_tensors: {}\n"
-            "  n_kv: {}",
-            n_tensors,
-            n_kv));
+        log::info("gguf info\n"
+                  "  n_tensors: {}\n"
+                  "  n_kv: {}",
+                  n_tensors,
+                  n_kv);
 
         log::when(BERTS_LOG_DEBUG, [n_kv, gguf]() {
             for (int i = 0; i < n_kv; ++i) {
                 auto key = gguf_get_key(gguf, i);
-                const auto msg = berts::fmt("  key {0}: {1}", i, key);
-                log::debug(msg);
+                log::debug("  key {0}: {1}", i, key);
             }
         });
     }
@@ -177,26 +173,24 @@ static gg_ctx init_gg(const std::string &path, size_t *ctx_size) {
             size_t padded_size = ggml_nbytes_pad(t);
             ctx_size_ += sizeof(struct ggml_tensor) + padded_size + GGML_OBJECT_SIZE;
 
-            log::when(BERTS_LOG_DEBUG, [=]() {
-                const auto msg = berts::fmt(
-                    "  tensor {}\n"
-                    "    name: {} ({})\n"
-                    "    n_dims: {}\n"
-                    "    size: {}\n"
-                    "    padded_size: {}\n"
-                    "    offset: {}",
-                    i,
-                    t->name,
-                    tensor_name,
-                    t->n_dims,
-                    tensor_size,
-                    padded_size,
-                    tensor_offset);
-            });
+            log::debug(
+                "  tensor {}\n"
+                "    name: {} ({})\n"
+                "    n_dims: {}\n"
+                "    size: {}\n"
+                "    padded_size: {}\n"
+                "    offset: {}",
+                i,
+                t->name,
+                tensor_name,
+                t->n_dims,
+                tensor_size,
+                padded_size,
+                tensor_offset);
         }
     }
 
-    log::info(berts::fmt("  model_size: {} ({} MiB)", ctx_size_, ctx_size_ / 1024 / 1024));
+    log::info("  model_size: {} ({} MiB)", ctx_size_, ctx_size_ / 1024 / 1024);
 
     if (ctx_size) {
         *ctx_size = ctx_size_;
@@ -206,7 +200,7 @@ static gg_ctx init_gg(const std::string &path, size_t *ctx_size) {
 }
 
 berts_context *load_from_file(const std::string &path) {
-    log::info(berts::fmt("loading model: {}", path));
+    log::info("loading model: {}", path);
 
     size_t ctx_size;
     gg_ctx gg = init_gg(path, &ctx_size);
@@ -215,7 +209,7 @@ berts_context *load_from_file(const std::string &path) {
     ggml_context *ggml_meta = gg.ggml;
 
     if (!gg || !gguf || !ggml_meta) {
-        log::error(berts::fmt("fail to load gguf file: {}", path));
+        log::error("fail to load gguf file: {}", path);
         return nullptr;
     }
 
@@ -242,7 +236,7 @@ berts_context *load_from_file(const std::string &path) {
         for (int i = 0; i < n_tensors; ++i) {
             const auto tensor_name = gguf_get_tensor_name(gguf, i);
             log::when(BERTS_LOG_DEBUG, [=]() {
-                log::debug(berts::fmt("  load {} {}", i, tensor_name));
+                log::debug("  load {} {}", i, tensor_name);
             });
             auto t = ggml_get_tensor(ggml_meta, tensor_name);
             auto x = ggml_dup_tensor(ggml, t);
@@ -270,7 +264,7 @@ berts_context *load_from_file(const std::string &path) {
     hparams.eps = gguf_f64(gguf, BERTS_KEY_HPARAM_LN_EPS);
 
     log::when(BERTS_LOG_INFO, [&hparams]() {
-        log::info(berts::fmt(
+        log::info(
             "hparams\n"
             "  arch: {}\n"
             "  vocab_size: {}\n"
@@ -289,7 +283,7 @@ berts_context *load_from_file(const std::string &path) {
             hparams.max_tokens,
             hparams.intermediate_dim,
             (int)hparams.hidden_act,
-            hparams.eps));
+            hparams.eps);
     });
 
     const auto type = static_cast<ggml_type>(gguf_u32(gguf, "general.file_type"));
@@ -304,7 +298,7 @@ berts_context *load_from_file(const std::string &path) {
         // ok
         break;
     default:
-        log::error(berts::fmt("unknown hidden_act: {}", (int)hparams.hidden_act));
+        log::error("unknown hidden_act: {}", (int)hparams.hidden_act);
         return nullptr;
     }
 
@@ -318,7 +312,7 @@ berts_context *load_from_file(const std::string &path) {
         model = new bert::model(type);
         break;
     default:
-        log::error(berts::fmt("unknown bert_type: {}", (int)hparams.architecture));
+        log::error("unknown bert_type: {}", (int)hparams.architecture);
         return nullptr;
     }
 

@@ -44,9 +44,9 @@ const char *BERTS_KEY_BERT_ENC_N_LN_OUT_B = KEY_N(encoder.layer, output.LayerNor
 static inline ggml_tensor *tensor(ggml_context *ctx, const char *key) {
     auto t = ggml_get_tensor(ctx, key);
     if (!t) {
-        log::error(berts::fmt("failed to read tensor: {}", key));
+        log::error("failed to read tensor: {}", key);
     }
-    log::debug(berts::fmt("  store {}", key));
+    log::debug("  store {}", key);
     return t;
 }
 
@@ -74,7 +74,7 @@ bool model::init_weight(berts_context *ctx) {
 #define GET_TENSOR_N(dest, key, n)           \
     do {                                     \
         std::string name =                   \
-            berts::fmt((key), (n));          \
+            berts::fmt::fmt((key), (n));          \
         auto v = tensor(ggml, name.c_str()); \
         if (!v) {                            \
             return false;                    \
@@ -121,7 +121,7 @@ bool model::init_weight(berts_context *ctx) {
             const std::string tensor_name{gguf_get_tensor_name(gguf, i)};
             if (std::find(stored.begin(), stored.end(), tensor_name) == stored.end()) {
                 if (tensor_name != BERTS_KEY_ALL_VOCAB_SIZE && tensor_name != BERTS_KEY_ALL_VOCAB_DATA) {
-                    log::info(berts::fmt("  unused {} {}", i, tensor_name));
+                    log::info("  unused {} {}", i, tensor_name);
                 }
             }
         }
@@ -144,27 +144,27 @@ bool model::load_vocab(berts_context *ctx) {
     auto vocab_data = ggml_get_tensor(ggml, BERTS_KEY_ALL_VOCAB_DATA);
 
     if (!vocab_size) {
-        log::error(berts::fmt("key {} is not found", BERTS_KEY_ALL_VOCAB_SIZE));
+        log::error("key {} is not found", BERTS_KEY_ALL_VOCAB_SIZE);
         return false;
     }
 
     if (!vocab_data) {
-        log::error(berts::fmt("key {} is not found", BERTS_KEY_ALL_VOCAB_DATA));
+        log::error("key {} is not found", BERTS_KEY_ALL_VOCAB_DATA);
         return false;
     }
 
     if (vocab_size->n_dims != 1 || vocab_data->n_dims != 1) {
-        log::error(berts::fmt("invalid shape: vocab_size={}, vocab_data={}", vocab_size->n_dims, vocab_data->n_dims));
+        log::error("invalid shape: vocab_size={}, vocab_data={}", vocab_size->n_dims, vocab_data->n_dims);
         return false;
     }
 
     if (vocab_size->type != GGML_TYPE_I32) {
-        log::error(berts::fmt("invalid type of vocab_size: {}", (int)vocab_size->type));
+        log::error("invalid type of vocab_size: {}", (int)vocab_size->type);
         return false;
     }
 
     if (vocab_data->type != GGML_TYPE_I8) {
-        log::error(berts::fmt("invalid type of vocab_data: {}", (int)vocab_data->type));
+        log::error("invalid type of vocab_data: {}", (int)vocab_data->type);
         return false;
     }
 
