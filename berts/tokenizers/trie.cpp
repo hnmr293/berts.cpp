@@ -1,4 +1,4 @@
-#include "berts/models/trie.hpp"
+#include "berts/tokenizers/trie.hpp"
 #include <algorithm>
 #include <memory>
 #include <unordered_map>

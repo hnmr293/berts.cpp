@@ -1,4 +1,4 @@
-#include "berts/models/unicode.hpp"
+#include "berts/tokenizers/unicode.hpp"
 #include <algorithm>
 #include <cstring>
 #include <iterator>

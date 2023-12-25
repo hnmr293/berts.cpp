@@ -140,13 +140,13 @@ bert.o: models/bert.cpp models/bert.hpp $(COMMON_HEADERS)
 quantize.o: models/quantize.cpp $(COMMON_HEADERS)
 	$(CXX) $(CXXFLAGS) -c $< -o $@
 
-tokenizer.o: models/tokenizer.cpp models/tokenizer.hpp $(COMMON_HEADERS)
+tokenizer.o: tokenizers/tokenizer.cpp tokenizers/tokenizer.hpp $(COMMON_HEADERS)
 	$(CXX) $(CXXFLAGS) -c $< -o $@
 
-trie.o: models/trie.cpp models/trie.hpp $(COMMON_HEADERS)
+trie.o: tokenizers/trie.cpp tokenizers/trie.hpp $(COMMON_HEADERS)
 	$(CXX) $(CXXFLAGS) -c $< -o $@
 
-unicode.o: models/unicode.cpp models/unicode.hpp $(COMMON_HEADERS)
+unicode.o: tokenizers/unicode.cpp tokenizers/unicode.hpp $(COMMON_HEADERS)
 	$(CXX) $(CXXFLAGS) -c $< -o $@
 
 internal.o: models/internal.cpp models/internal.hpp $(COMMON_HEADERS)

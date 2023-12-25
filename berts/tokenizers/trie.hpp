@@ -3,7 +3,7 @@
 #include <string>
 #include <vector>
 #include "berts/berts.h"
-#include "berts/models/unicode.hpp"
+#include "berts/tokenizers/unicode.hpp"
 
 namespace berts::trie {
 
