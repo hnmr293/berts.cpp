@@ -1,8 +1,9 @@
 #include "berts/models/internal.hpp"
 #include <cmath>
 #include <memory>
-#include "berts/models/utils.hpp"
 #include "berts/models/log.hpp"
+#include "berts/models/utils.hpp"
+#include "berts/models/vocab.hpp"
 
 using namespace berts;
 
@@ -14,6 +15,7 @@ struct vocab {
     bert_token_t pad_id;
     bert_token_t sep_id;
     bert_token_t unk_id;
+    berts::vocab::trie *trie;
 
     vocab()
         : id_to_token()
@@ -22,12 +24,48 @@ struct vocab {
         , mask_id(0)
         , pad_id(0)
         , sep_id(0)
-        , unk_id(0) {}
+        , unk_id(0)
+        , trie(nullptr) {}
 
     vocab(size_t n)
         : vocab() {
         this->id_to_token.reserve(n);
         this->token_to_id.reserve(n);
+    }
+
+    vocab(const vocab &) = delete;
+
+    vocab(vocab &&other) noexcept
+        : id_to_token(std::move(other.id_to_token))
+        , token_to_id(std::move(other.token_to_id))
+        , trie(other.trie) {}
+
+    ~vocab() {
+        this->dispose();
+    }
+
+    vocab &operator=(const vocab &) = delete;
+
+    vocab &operator=(vocab &&other) noexcept {
+        if (this != &other) {
+            this->dispose();
+            this->id_to_token = std::move(other.id_to_token);
+            this->token_to_id = std::move(other.token_to_id);
+            this->trie = other.trie;
+            other.trie = nullptr;
+        }
+        return *this;
+    }
+
+    bool build_trie() {
+        log::info("building vocab");
+        this->dispose();
+        this->trie = berts::vocab::build_trie(this->id_to_token);
+        return !!this->trie;
+    }
+
+    void dispose() {
+        if (this->trie) berts::vocab::free_trie(trie);
     }
 };
 
@@ -52,6 +90,12 @@ struct berts_context {
                 log::error("fail to load vocab");
                 return;
             }
+
+            if (!this->vocab.build_trie()) {
+                log::error("fail to build vocab");
+                return;
+            }
+
             if (!model->init_weight(this)) {
                 log::error("fail to load weights");
                 return;
