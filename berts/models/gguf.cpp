@@ -5,6 +5,7 @@
 #include "berts/berts.h"
 #include "berts/models/bert.hpp"
 #include "berts/models/internal.hpp"
+#include "berts/models/keys.h"
 #include "berts/models/log.hpp"
 #include "berts/models/utils.hpp"
 
@@ -96,19 +97,6 @@ static inline std::string ftype(uint32_t ftype) {
 std::string type_to_str(ggml_type type) {
     return ftype((uint32_t)type);
 }
-
-//
-// keys
-//
-
-const char *BERTS_KEY_HPARAM_BERT_TYPE = "berts.bert_type";
-const char *BERTS_KEY_HPARAM_VOCAB_SIZE = "berts.vocab_size";
-const char *BERTS_KEY_HPARAM_HIDDEN_DIM = "berts.hidden_dim";
-const char *BERTS_KEY_HPARAM_N_LAYERS = "berts.n_layers";
-const char *BERTS_KEY_HPARAM_ATTN_HEADS = "berts.attn_heads";
-const char *BERTS_KEY_HPARAM_MAX_TOKENS = "berts.max_token";
-const char *BERTS_KEY_HPARAM_INTERMEDIATE_DIM = "berts.intermediate_dim";
-const char *BERTS_KEY_HPARAM_HIDDEN_ACT = "berts.hidden_act";
 
 //
 // gguf loader
@@ -291,10 +279,14 @@ berts_context *load_from_file(const std::string &path) {
             "  max_tokens: {}\n"
             "  intermediate_dim: {}\n"
             "  hidden_act: {}",
-            (int)hparams.architecture, hparams.vocab_size, hparams.hidden_dim,
-            hparams.n_layers, hparams.attn_heads, hparams.max_tokens,
-            hparams.intermediate_dim, (int)hparams.hidden_act
-        ));
+            (int)hparams.architecture,
+            hparams.vocab_size,
+            hparams.hidden_dim,
+            hparams.n_layers,
+            hparams.attn_heads,
+            hparams.max_tokens,
+            hparams.intermediate_dim,
+            (int)hparams.hidden_act));
     });
 
     const auto type = static_cast<ggml_type>(gguf_u32(gguf, "general.file_type"));

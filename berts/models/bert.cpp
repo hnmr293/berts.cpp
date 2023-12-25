@@ -5,6 +5,7 @@
 #include <cmath>
 #include <cstring>
 #include <ranges>
+#include "berts/models/keys.h"
 #include "berts/models/utils.hpp"
 
 namespace berts::bert {
@@ -14,15 +15,6 @@ using namespace berts::internal;
 #define KEY_PREFIX "berts.bert."
 #define KEY(s) KEY_PREFIX #s
 #define KEY_N(pre, post) KEY_PREFIX #pre ".{}." #post
-
-// vocab keys
-const char *BERTS_KEY_BERT_VOCAB_SIZE = KEY(vocab_size);
-const char *BERTS_KEY_BERT_VOCAB_DATA = KEY(vocab_data);
-const char *BERTS_KEY_BERT_VOCAB_CLS_ID = KEY(cls_id);
-const char *BERTS_KEY_BERT_VOCAB_MASK_ID = KEY(mask_id);
-const char *BERTS_KEY_BERT_VOCAB_PAD_ID = KEY(pad_id);
-const char *BERTS_KEY_BERT_VOCAB_SEP_ID = KEY(sep_id);
-const char *BERTS_KEY_BERT_VOCAB_UNK_ID = KEY(unk_id);
 
 // embedding keys
 const char *BERTS_KEY_BERT_EMB_TOKEN = KEY(embeddings.word_embeddings.weight);
@@ -128,7 +120,7 @@ bool model::init_weight(berts_context *ctx) {
         for (int i = 0; i < n_tensors; ++i) {
             const std::string tensor_name{gguf_get_tensor_name(gguf, i)};
             if (std::find(stored.begin(), stored.end(), tensor_name) == stored.end()) {
-                if (tensor_name != BERTS_KEY_BERT_VOCAB_SIZE && tensor_name != BERTS_KEY_BERT_VOCAB_DATA) {
+                if (tensor_name != BERTS_KEY_ALL_VOCAB_SIZE && tensor_name != BERTS_KEY_ALL_VOCAB_DATA) {
                     log::info(berts::fmt("  unused {} {}", i, tensor_name));
                 }
             }
@@ -148,16 +140,16 @@ bool model::load_vocab(berts_context *ctx) {
     auto gguf = get_gguf_context(ctx);
     auto ggml = get_ggml_context(ctx);
 
-    auto vocab_size = ggml_get_tensor(ggml, BERTS_KEY_BERT_VOCAB_SIZE);
-    auto vocab_data = ggml_get_tensor(ggml, BERTS_KEY_BERT_VOCAB_DATA);
+    auto vocab_size = ggml_get_tensor(ggml, BERTS_KEY_ALL_VOCAB_SIZE);
+    auto vocab_data = ggml_get_tensor(ggml, BERTS_KEY_ALL_VOCAB_DATA);
 
     if (!vocab_size) {
-        log::error(berts::fmt("key {} is not found", BERTS_KEY_BERT_VOCAB_SIZE));
+        log::error(berts::fmt("key {} is not found", BERTS_KEY_ALL_VOCAB_SIZE));
         return false;
     }
 
     if (!vocab_data) {
-        log::error(berts::fmt("key {} is not found", BERTS_KEY_BERT_VOCAB_DATA));
+        log::error(berts::fmt("key {} is not found", BERTS_KEY_ALL_VOCAB_DATA));
         return false;
     }
 
@@ -187,11 +179,11 @@ bool model::load_vocab(berts_context *ctx) {
         }                                        \
     }
 
-    get_id(cls_id, BERTS_KEY_BERT_VOCAB_CLS_ID);
-    get_id(mask_id, BERTS_KEY_BERT_VOCAB_MASK_ID);
-    get_id(pad_id, BERTS_KEY_BERT_VOCAB_PAD_ID);
-    get_id(sep_id, BERTS_KEY_BERT_VOCAB_SEP_ID);
-    get_id(unk_id, BERTS_KEY_BERT_VOCAB_UNK_ID);
+    get_id(cls_id, BERTS_KEY_TOKENIZER_CLS_ID);
+    get_id(mask_id, BERTS_KEY_TOKENIZER_MASK_ID);
+    get_id(pad_id, BERTS_KEY_TOKENIZER_PAD_ID);
+    get_id(sep_id, BERTS_KEY_TOKENIZER_SEP_ID);
+    get_id(unk_id, BERTS_KEY_TOKENIZER_UNK_ID);
 
     set_cls_id(ctx, cls_id);
     set_mask_id(ctx, mask_id);
