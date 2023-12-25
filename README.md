@@ -50,6 +50,7 @@ dev/berts.cpp $ BERTS_DEBUG=1 BERTS_USE_FMTLIB_FMT=1 BERTS_FMTLIB_FMT_INCLUDE=".
 
 ## TODO
 
+- vocab_size -> 8-bit
 - pooling
 - inference
 - zstd vocab
