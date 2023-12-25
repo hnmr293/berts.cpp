@@ -37,23 +37,6 @@ typedef uint32_t bert_token_t;
 typedef uint32_t bert_segment_t;
 
 //
-// default hparams
-//
-
-const bert_int DEFAULT_HIDDEN_SIZE = 768;
-const bert_int DEFAULT_LAYERS = 12;
-const bert_int DEFAULT_ATTN_HEADS = 12;
-
-enum bert_type {
-    BERTS_TYPE_BERT,
-    // BERTS_TYPE_DEBERTA,
-};
-
-enum hidden_act {
-    BERTS_HIDDEN_ACT_GELU,
-};
-
-//
 // general
 //
 
@@ -86,6 +69,19 @@ void berts_set_log_level(berts_log_level level);
 FILE *berts_get_log_file(void);
 
 void berts_set_log_file(FILE *file);
+
+//
+// hparams
+//
+
+enum bert_type {
+    BERTS_TYPE_BERT,
+    // BERTS_TYPE_DEBERTA,
+};
+
+enum hidden_act {
+    BERTS_HIDDEN_ACT_GELU,
+};
 
 //
 // context
