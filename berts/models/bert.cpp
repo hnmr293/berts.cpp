@@ -18,6 +18,11 @@ using namespace berts::internal;
 // vocab keys
 const char *BERTS_KEY_BERT_VOCAB_SIZE = KEY(vocab_size);
 const char *BERTS_KEY_BERT_VOCAB_DATA = KEY(vocab_data);
+const char *BERTS_KEY_BERT_VOCAB_CLS_ID = KEY(cls_id);
+const char *BERTS_KEY_BERT_VOCAB_MASK_ID = KEY(mask_id);
+const char *BERTS_KEY_BERT_VOCAB_PAD_ID = KEY(pad_id);
+const char *BERTS_KEY_BERT_VOCAB_SEP_ID = KEY(sep_id);
+const char *BERTS_KEY_BERT_VOCAB_UNK_ID = KEY(unk_id);
 
 // embedding keys
 const char *BERTS_KEY_BERT_EMB_TOKEN = KEY(embeddings.word_embeddings.weight);
@@ -134,10 +139,13 @@ bool model::init_weight(berts_context *ctx) {
 }
 
 bool model::load_vocab(berts_context *ctx) {
+    log::info("loading vocab");
+
     if (!check_ctx(ctx)) {
         return false;
     }
 
+    auto gguf = get_gguf_context(ctx);
     auto ggml = get_ggml_context(ctx);
 
     auto vocab_size = ggml_get_tensor(ggml, BERTS_KEY_BERT_VOCAB_SIZE);
@@ -167,6 +175,29 @@ bool model::load_vocab(berts_context *ctx) {
         log::error(berts::fmt("invalid type of vocab_data: {}", (int)vocab_data->type));
         return false;
     }
+
+#define get_id(var, key)                         \
+    bert_token_t var;                            \
+    {                                            \
+        auto index = gguf_find_key(gguf, key);   \
+        if (index < 0) {                         \
+            var = (bert_token_t)-1;              \
+        } else {                                 \
+            var = gguf_get_val_u32(gguf, index); \
+        }                                        \
+    }
+
+    get_id(cls_id, BERTS_KEY_BERT_VOCAB_CLS_ID);
+    get_id(mask_id, BERTS_KEY_BERT_VOCAB_MASK_ID);
+    get_id(pad_id, BERTS_KEY_BERT_VOCAB_PAD_ID);
+    get_id(sep_id, BERTS_KEY_BERT_VOCAB_SEP_ID);
+    get_id(unk_id, BERTS_KEY_BERT_VOCAB_UNK_ID);
+
+    set_cls_id(ctx, cls_id);
+    set_mask_id(ctx, mask_id);
+    set_pad_id(ctx, pad_id);
+    set_sep_id(ctx, sep_id);
+    set_unk_id(ctx, unk_id);
 
     const int64_t vocab_count = vocab_size->ne[0];
     auto token_lengths = static_cast<const int32_t *>(vocab_size->data);

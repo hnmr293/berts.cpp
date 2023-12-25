@@ -20,11 +20,11 @@ struct vocab {
     vocab()
         : id_to_token()
         , token_to_id()
-        , cls_id(0)
-        , mask_id(0)
-        , pad_id(0)
-        , sep_id(0)
-        , unk_id(0)
+        , cls_id((bert_token_t)-1)
+        , mask_id((bert_token_t)-1)
+        , pad_id((bert_token_t)-1)
+        , sep_id((bert_token_t)-1)
+        , unk_id((bert_token_t)-1)
         , trie(nullptr) {}
 
     vocab(size_t n)
@@ -67,6 +67,30 @@ struct vocab {
     void dispose() {
         if (this->trie) berts::vocab::free_trie(trie);
     }
+
+    void init_ids() {
+        using ustr = unicode::ustr;
+
+        if (this->cls_id == (bert_token_t)-1) {
+            this->cls_id = berts::vocab::search_trie(this->trie, ustr{"[CLS]"});
+        }
+        
+        if (this->mask_id == (bert_token_t)-1) {
+            this->mask_id = berts::vocab::search_trie(this->trie, ustr{"[MASK]"});
+        }
+        
+        if (this->sep_id == (bert_token_t)-1) {
+            this->sep_id = berts::vocab::search_trie(this->trie, ustr{"[SEP]"});
+        }
+        
+        if (this->pad_id == (bert_token_t)-1) {
+            this->pad_id = berts::vocab::search_trie(this->trie, ustr{"[PAD]"});
+        }
+        
+        if (this->unk_id == (bert_token_t)-1) {
+            this->unk_id = berts::vocab::search_trie(this->trie, ustr{"[UNK]"});
+        }
+    }
 };
 
 struct berts_context {
@@ -95,6 +119,8 @@ struct berts_context {
                 log::error("fail to build vocab");
                 return;
             }
+
+            vocab.init_ids();
 
             if (!model->init_weight(this)) {
                 log::error("fail to load weights");
