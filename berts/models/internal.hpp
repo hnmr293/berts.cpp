@@ -17,6 +17,7 @@ struct hparams {
     bert_int max_tokens;
     bert_int intermediate_dim;
     enum hidden_act hidden_act;
+    double eps;
 };
 
 struct model {
@@ -74,10 +75,6 @@ bool add_token(berts_context *ctx, const std::string &token);
 bool has_token(berts_context *ctx, const std::string &token);
 
 bool is_model_loaded(berts_context *ctx);
-
-double get_eps(berts_context *ctx);
-
-double set_eps(berts_context *ctx, double new_val);
 
 ggml_tensor *eval(berts_context *ctx,
                   const std::vector<bert_token_t> &tokens);

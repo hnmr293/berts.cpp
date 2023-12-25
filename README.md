@@ -55,4 +55,3 @@ dev/berts.cpp $ BERTS_DEBUG=1 BERTS_USE_FMTLIB_FMT=1 BERTS_FMTLIB_FMT_INCLUDE=".
 - zstd vocab
 - load gguf from memory
 - load gguf from std::istream
-- move eps from `berts_context` to `internal::hparams`

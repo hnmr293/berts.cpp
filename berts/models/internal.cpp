@@ -97,7 +97,6 @@ struct berts_context {
     internal::hparams hparams;
     struct vocab vocab;
     std::unique_ptr<internal::model> model;
-    double eps;
     gguf_context *gguf;
     ggml_context *ctx;
     bool initialized_success;
@@ -260,24 +259,6 @@ bool has_token(berts_context *ctx, const std::string &token) {
 
 bool is_model_loaded(berts_context *ctx) {
     return ctx && ctx->model;
-}
-
-double get_eps(berts_context *ctx) {
-    if (!check_ctx(ctx)) {
-        return std::nan("");
-    }
-
-    return ctx->eps;
-}
-
-double set_eps(berts_context *ctx, double new_val) {
-    if (!check_ctx(ctx)) {
-        return std::nan("");
-    }
-
-    auto old = ctx->eps;
-    ctx->eps = new_val;
-    return old;
 }
 
 ggml_tensor *eval(berts_context *ctx,
