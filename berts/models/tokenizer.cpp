@@ -34,7 +34,7 @@ static inline ustr safe_norm_nfd(const ustr &in) {
     return s;
 }
 
-static void clean_text_and_split(const ustr &in, std::vector<ustr> &out, const tokenize_info &cond) {
+static void clean_text_and_split(const ustr &in, std::vector<ustr> &out, const berts_tokenize_info &cond) {
     std::vector<ustr::cp> cleaned;
     cleaned.reserve(in.packsize());
 
@@ -129,7 +129,7 @@ static void clean_text_and_split(const ustr &in, std::vector<ustr> &out, const t
 static bool basic_tokenize(const std::string &text,
                            const std::unordered_set<ustr> &never_split,
                            std::vector<ustr> &result,
-                           const tokenize_info &cond) {
+                           const berts_tokenize_info &cond) {
     log::debug("start basic_tokenize");
 
     // NFC normalization
@@ -205,7 +205,7 @@ static bool basic_tokenize(const std::string &text,
 static bool wordpiece_tokenize(const std::vector<ustr> &words,
                                const vocab::trie *vocab,
                                std::vector<bert_token_t> &result,
-                               const tokenize_info &cond) {
+                               const berts_tokenize_info &cond) {
     log::debug("start wordpiece_tokenize");
 
     auto root_node = vocab::trie_root(vocab);
@@ -247,7 +247,7 @@ bool tokenize(const std::string &text,
               const vocab::trie *vocab,
               const std::unordered_set<std::string> &never_split,
               std::vector<bert_token_t> &result,
-              const tokenize_info &cond) {
+              const berts_tokenize_info &cond) {
     log::info("start tokenize");
 
     // usually never_split is small, so

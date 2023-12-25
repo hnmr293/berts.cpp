@@ -68,6 +68,34 @@ double berts_get_eps(berts_context *ctx) {
     return internal::get_eps(ctx);
 }
 
+void berts_init_tokenize_info_default(berts_tokenize_info *info, bert_token_t unknown_token_id) {
+    if (!info) return;
+    info->normalize = true;
+    info->remove_replacement_char = true;
+    info->remove_null_char = true;
+    info->remove_control_char = true;
+    info->normalize_whitespaces = true;
+    info->add_space_around_cjk_char = true;
+    info->do_lower_case = true;
+    info->strip_accents = true;
+    info->split_on_punc = true;
+    info->unknown_token_id = unknown_token_id;
+}
+
+void berts_init_tokenize_info_no_basic(berts_tokenize_info *info, bert_token_t unknown_token_id) {
+    if (!info) return;
+    info->normalize = true;
+    info->remove_replacement_char = false;
+    info->remove_null_char = false;
+    info->remove_control_char = false;
+    info->normalize_whitespaces = true;
+    info->add_space_around_cjk_char = false;
+    info->do_lower_case = false;
+    info->strip_accents = false;
+    info->split_on_punc = false;
+    info->unknown_token_id = unknown_token_id;
+}
+
 ggml_tensor *berts_eval(berts_context *ctx,
                         const bert_token_t *tokens,
                         const bert_segment_t *segments,

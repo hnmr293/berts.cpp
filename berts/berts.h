@@ -104,6 +104,46 @@ BERTS_API void berts_set_eps(berts_context *ctx, double eps);
 BERTS_API double berts_get_eps(berts_context *ctx);
 
 //
+// tokenize
+//
+
+struct berts_tokenize_info {
+    // ignored, always normalized with NFC
+    bool normalize;
+
+    // remove U+FFFD
+    bool remove_replacement_char;
+
+    // remove U+0000
+    bool remove_null_char;
+
+    // remove control chars (category C*)
+    bool remove_control_char;
+
+    // convert all whitespaces to a normal space (U+0020)
+    bool normalize_whitespaces;
+
+    // add space around all CJK characters
+    bool add_space_around_cjk_char;
+
+    // force input to be lowercase letters
+    bool do_lower_case;
+
+    // remove all accent chars
+    bool strip_accents;
+
+    // split words at a punctuation
+    bool split_on_punc;
+
+    // [UNK] token id
+    bert_token_t unknown_token_id;
+};
+
+void berts_init_tokenize_info_default(berts_tokenize_info *info, bert_token_t unknown_token_id);
+
+void berts_init_tokenize_info_no_basic(berts_tokenize_info *info, bert_token_t unknown_token_id);
+
+//
 // inference
 //
 
