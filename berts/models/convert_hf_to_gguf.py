@@ -1,6 +1,6 @@
 import argparse
 import os
-import json
+import re
 
 import numpy as np
 import gguf
@@ -24,19 +24,23 @@ GGML_TYPE_I16 = 17
 GGML_TYPE_I32 = 18
 GGML_TYPE_COUNT = 19
 
-# hparams
-BERTS_KEY_HPARAM_BERT_TYPE = 'berts.bert_type'
-BERTS_KEY_HPARAM_VOCAB_SIZE = 'berts.vocab_size'
-BERTS_KEY_HPARAM_HIDDEN_DIM = 'berts.hidden_dim'
-BERTS_KEY_HPARAM_N_LAYERS = 'berts.n_layers'
-BERTS_KEY_HPARAM_ATTN_HEADS = 'berts.attn_heads'
-BERTS_KEY_HPARAM_MAX_TOKENS = 'berts.max_token'
-BERTS_KEY_HPARAM_INTERMEDIATE_DIM = 'berts.intermediate_dim'
-BERTS_KEY_HPARAM_HIDDEN_ACT = 'berts.hidden_act'
+def load_keys(path: str) -> dict[str, str]:
+    with open(path, 'r', encoding='utf-8') as io:
+        lines = io.readlines()
+    
+    r = re.compile(r'^#define\s+(\w+)\s+"([^"]+)"$')
+    result = dict()
+    for line in lines:
+        line = line.strip()
+        if not line.startswith('#define'):
+            continue
+        m = r.match(line)
+        assert m is not None, line
+        key, val = m.group(1, 2)
+        result[key] = val
+    return result
 
 # tensor keys
-BERTS_KEY_BERT_VOCAB_SIZE = KEY('vocab_size')
-BERTS_KEY_BERT_VOCAB_DATA = KEY('vocab_data')
 BERTS_KEY_BERT_EMB_TOKEN = KEY('token_embedding')
 BERTS_KEY_BERT_EMB_SEGM = KEY('segment_embedding')
 BERTS_KEY_BERT_EMB_POS = KEY('position_embedding')
@@ -98,16 +102,39 @@ def convert(repo_id: str, cache_dir: str|None, output_path: str):
   hidden_act = {config.hidden_act}
 '''.strip())
     
+    K = load_keys(os.path.dirname(__file__) + '/keys.h')
+    
     # hparams
-    w.add_uint32(BERTS_KEY_HPARAM_BERT_TYPE, 0) # BERT
-    w.add_uint32(BERTS_KEY_HPARAM_VOCAB_SIZE, config.vocab_size)
-    w.add_uint32(BERTS_KEY_HPARAM_HIDDEN_DIM, config.hidden_size)
-    w.add_uint32(BERTS_KEY_HPARAM_N_LAYERS, config.num_hidden_layers)
-    w.add_uint32(BERTS_KEY_HPARAM_ATTN_HEADS, config.num_attention_heads)
-    w.add_uint32(BERTS_KEY_HPARAM_MAX_TOKENS, config.max_position_embeddings)
-    w.add_uint32(BERTS_KEY_HPARAM_INTERMEDIATE_DIM, config.intermediate_size)
-    w.add_uint32(BERTS_KEY_HPARAM_HIDDEN_ACT, 0) # GeLU
+    w.add_uint32(K['BERTS_KEY_HPARAM_BERT_TYPE'], 0) # BERT
+    w.add_uint32(K['BERTS_KEY_HPARAM_VOCAB_SIZE'], config.vocab_size)
+    w.add_uint32(K['BERTS_KEY_HPARAM_HIDDEN_DIM'], config.hidden_size)
+    w.add_uint32(K['BERTS_KEY_HPARAM_N_LAYERS'], config.num_hidden_layers)
+    w.add_uint32(K['BERTS_KEY_HPARAM_ATTN_HEADS'], config.num_attention_heads)
+    w.add_uint32(K['BERTS_KEY_HPARAM_MAX_TOKENS'], config.max_position_embeddings)
+    w.add_uint32(K['BERTS_KEY_HPARAM_INTERMEDIATE_DIM'], config.intermediate_size)
+    w.add_uint32(K['BERTS_KEY_HPARAM_HIDDEN_ACT'], 0) # GeLU
     assert model.config.hidden_act == 'gelu'
+
+    # tokenizer params
+    if tokenizer.cls_token_id is not None:
+        w.add_uint32(K['BERTS_KEY_TOKENIZER_CLS_ID'], tokenizer.cls_token_id)
+    if tokenizer.mask_token_id is not None:
+        w.add_uint32(K['BERTS_KEY_TOKENIZER_MASK_ID'], tokenizer.mask_token_id)
+    if tokenizer.pad_token_id is not None:
+        w.add_uint32(K['BERTS_KEY_TOKENIZER_PAD_ID'], tokenizer.pad_token_id)
+    if tokenizer.sep_token_id is not None:
+        w.add_uint32(K['BERTS_KEY_TOKENIZER_SEP_ID'], tokenizer.sep_token_id)
+    if tokenizer.unk_token_id is not None:
+        w.add_uint32(K['BERTS_KEY_TOKENIZER_UNK_ID'], tokenizer.unk_token_id)
+    if tokenizer.do_lower_case is not None:
+        w.add_bool(K['BERTS_KEY_TOKENIZER_DO_LOWER_CASE'], tokenizer.do_lower_case)
+    if tokenizer.do_basic_tokenize:
+        w.add_bool(K['BERTS_KEY_TOKENIZER_DO_BASIC_TOKENIZE'], tokenizer.do_basic_tokenize)
+    # never split ???
+    if hasattr(tokenizer, 'basic_tokenizer') and tokenizer.basic_tokenizer.tokenize_chinese_chars is not None:
+        w.add_bool(K['BERTS_KEY_TOKENIZER_NEVER_SPLIT'], tokenizer.basic_tokenizer.tokenize_chinese_chars)
+    if hasattr(tokenizer, 'basic_tokenizer') and tokenizer.basic_tokenizer.strip_accents is not None:
+        w.add_bool(K['BERTS_KEY_TOKENIZER_STRIP_ACCENT'], tokenizer.basic_tokenizer.strip_accents)
     
     ftype = 1 # f16
     if args.use_f32:
@@ -137,8 +164,8 @@ def convert(repo_id: str, cache_dir: str|None, output_path: str):
     token_lengths = np.array(token_lengths, dtype=np.int32)
     token_bytes = np.frombuffer(b''.join(token_bytes), dtype=np.int8)
 
-    w.add_tensor(BERTS_KEY_BERT_VOCAB_SIZE, token_lengths, raw_dtype=GGML_TYPE_I32)
-    w.add_tensor(BERTS_KEY_BERT_VOCAB_DATA, token_bytes, raw_dtype=GGML_TYPE_I8)
+    w.add_tensor(K['BERTS_KEY_ALL_VOCAB_SIZE'], token_lengths, raw_dtype=GGML_TYPE_I32)
+    w.add_tensor(K['BERTS_KEY_ALL_VOCAB_DATA'], token_bytes, raw_dtype=GGML_TYPE_I8)
 
     print(f'''
 [tokens]
