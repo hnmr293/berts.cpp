@@ -26,6 +26,7 @@ $ ./berts/main
 
 ## TODO
 
+- vocab_size -> 8-bit
 - pooling
 - inference
 - zstd vocab
