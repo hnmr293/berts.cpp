@@ -131,6 +131,7 @@ bool model::init_weight(berts_context *ctx) {
     return true;
 }
 
+#if 0
 bool model::load_vocab(berts_context *ctx) {
     log::info("loading vocab");
 
@@ -211,6 +212,7 @@ bool model::load_vocab(berts_context *ctx) {
 
     return true;
 }
+#endif
 
 ggml_tensor *model::eval(berts_context *ctx,
                          const std::vector<bert_token_t> &tokens,

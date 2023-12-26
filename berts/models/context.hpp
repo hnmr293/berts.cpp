@@ -5,6 +5,7 @@
 #include <vector>
 #include "berts/berts.h"
 #include "berts/common/log.hpp"
+#include "berts/tokenizers/tokenizer.hpp"
 
 namespace berts::models {
 
@@ -28,7 +29,7 @@ struct model {
 
     virtual bool init_weight(berts_context *ctx) = 0;
 
-    virtual bool load_vocab(berts_context *ctx) = 0;
+    //virtual bool load_vocab(berts_context *ctx) = 0;
 
     ggml_tensor *eval(berts_context *ctx, const std::vector<bert_token_t> &tokens);
 
@@ -48,6 +49,8 @@ void free_context(berts_context *ctx);
 gguf_context *get_gguf_context(berts_context *ctx);
 
 ggml_context *get_ggml_context(berts_context *ctx);
+
+tokenizers::context *get_tokenizer_context(berts_context *ctx);
 
 bool get_hparams(berts_context *ctx, hparams *params);
 

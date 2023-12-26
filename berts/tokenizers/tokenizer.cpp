@@ -1,14 +1,263 @@
-#include "berts/models/tokenizer.hpp"
-#include "berts/models/log.hpp"
-#include "berts/models/unicode.hpp"
+#include "berts/tokenizers/tokenizer.hpp"
+
+#include <string>
+#include <unordered_set>
+#include <vector>
+#include "berts/common/log.hpp"
 #include "berts/models/utils.hpp"
+#include "berts/tokenizers/unicode.hpp"
 
 namespace uni = berts::unicode;
 using ustr = uni::ustr;
 using unic_t = uni::unic_t;
 using unic32_t = uni::unic32_t;
 
-namespace berts::tokenizer {
+namespace berts::tokenizers {
+
+inline bool check_ctx(context *ctx) {
+    if (!ctx) {
+        log::warn("ctx=nullptr");
+        return false;
+    } else {
+        return true;
+    }
+}
+
+// id <-> tokens
+struct vocab {
+    std::vector<std::string> id_to_token;
+    std::unordered_map<std::string, bert_token_t> token_to_id;
+    berts::trie::trie *trie;
+
+    vocab()
+        : id_to_token()
+        , token_to_id()
+        , trie(nullptr) {}
+
+    vocab(size_t n)
+        : vocab() {
+        this->id_to_token.reserve(n);
+        this->token_to_id.reserve(n);
+    }
+
+    vocab(const vocab &) = delete;
+
+    vocab(vocab &&other) noexcept
+        : id_to_token(std::move(other.id_to_token))
+        , token_to_id(std::move(other.token_to_id))
+        , trie(other.trie) {
+        other.trie = nullptr;
+    }
+
+    ~vocab() {
+        this->dispose();
+    }
+
+    vocab &operator=(const vocab &) = delete;
+
+    vocab &operator=(vocab &&other) noexcept {
+        if (this != &other) {
+            this->dispose();
+            this->id_to_token = std::move(other.id_to_token);
+            this->token_to_id = std::move(other.token_to_id);
+            this->trie = other.trie;
+            other.trie = nullptr;
+        }
+        return *this;
+    }
+
+    void dispose() {
+        if (this->trie) berts::trie::free_trie(trie);
+    }
+
+    bool build() {
+        this->dispose();
+        this->trie = berts::trie::build_trie(this->id_to_token);
+        return !!this->trie;
+    }
+};
+
+const bert_token_t invalid_token = (bert_token_t)-1;
+
+struct special_tokens {
+    bert_token_t cls_id;
+    bert_token_t mask_id;
+    bert_token_t pad_id;
+    bert_token_t sep_id;
+    bert_token_t unk_id;
+};
+
+struct context {
+    vocab vocab;
+    special_tokens special_tokens;
+    std::unordered_set<ustr> never_split;
+    berts_tokenize_info cond;
+
+    context(const berts_tokenize_info &cond)
+        : vocab()
+        , special_tokens({invalid_token, invalid_token, invalid_token, invalid_token, invalid_token})
+        , never_split()
+        , cond(cond) {}
+
+    ~context() {
+        dispose();
+    }
+
+    context(const context &) = delete;
+
+    context(context &&other) noexcept
+        : vocab(std::move(other.vocab))
+        , special_tokens(std::move(other.special_tokens))
+        , never_split(std::move(other.never_split))
+        , cond(std::move(cond)) {}
+
+    context &operator=(const context &) = delete;
+
+    context &operator=(context &&other) noexcept {
+        if (this != &other) {
+            dispose();
+            vocab = std::move(other.vocab);
+            special_tokens = std::move(other.special_tokens);
+            never_split = std::move(other.never_split);
+            cond = std::move(other.cond);
+        }
+    }
+
+    void dispose() {
+    }
+};
+
+context *new_context(const berts_tokenize_info &cond) {
+    return new context{cond};
+}
+
+void free_context(context *ctx) {
+    delete ctx;
+}
+
+bert_token_t get_cls_id(context *ctx) {
+    return check_ctx(ctx) ? ctx->special_tokens.cls_id : invalid_token;
+}
+
+void set_cls_id(context *ctx, bert_token_t id) {
+    if (check_ctx(ctx)) ctx->special_tokens.cls_id = id;
+}
+
+bert_token_t get_mask_id(context *ctx) {
+    return check_ctx(ctx) ? ctx->special_tokens.mask_id : invalid_token;
+}
+
+void set_mask_id(context *ctx, bert_token_t id) {
+    if (check_ctx(ctx)) ctx->special_tokens.mask_id = id;
+}
+
+bert_token_t get_pad_id(context *ctx) {
+    return check_ctx(ctx) ? ctx->special_tokens.pad_id : invalid_token;
+}
+void set_pad_id(context *ctx, bert_token_t id) {
+    if (check_ctx(ctx)) ctx->special_tokens.pad_id = id;
+}
+
+bert_token_t get_sep_id(context *ctx) {
+    return check_ctx(ctx) ? ctx->special_tokens.sep_id : invalid_token;
+}
+
+void set_sep_id(context *ctx, bert_token_t id) {
+    if (check_ctx(ctx)) ctx->special_tokens.sep_id = id;
+}
+
+bert_token_t get_unk_id(context *ctx) {
+    return check_ctx(ctx) ? ctx->special_tokens.unk_id : invalid_token;
+}
+
+void set_unk_id(context *ctx, bert_token_t id) {
+    if (check_ctx(ctx)) ctx->special_tokens.unk_id = id;
+}
+
+std::string id_to_token(context *ctx, bert_token_t token_id) {
+    if (!check_ctx(ctx)) {
+        return "";
+    }
+
+    if (ctx->vocab.id_to_token.size() <= token_id) {
+        log::error("token id {} is not found (max={})", token_id, ctx->vocab.id_to_token.size());
+        return "";
+    }
+
+    return ctx->vocab.id_to_token[token_id];
+}
+
+bert_token_t token_to_id(context *ctx, const std::string &token) {
+    if (!check_ctx(ctx)) {
+        return invalid_token;
+    }
+
+    const auto p = ctx->vocab.token_to_id.find(token);
+    if (p == ctx->vocab.token_to_id.end()) {
+        log::error("token {} is not found", token);
+        return invalid_token;
+    }
+
+    return p->second;
+}
+
+bool add_token(context *ctx, const std::string &token) {
+    if (!check_ctx(ctx)) {
+        return false;
+    }
+
+    if (has_token(ctx, token)) {
+        log::warn("token {} already exists", token);
+        return false;
+    }
+
+    const auto next_id = static_cast<bert_token_t>(ctx->vocab.id_to_token.size());
+    ctx->vocab.id_to_token.push_back(token);
+    ctx->vocab.token_to_id[token] = next_id;
+
+    return true;
+}
+
+bool has_token(context *ctx, const std::string &token) {
+    if (!check_ctx(ctx)) {
+        return false;
+    }
+
+    const auto p = ctx->vocab.token_to_id.find(token);
+    return p != ctx->vocab.token_to_id.end();
+}
+
+static inline bool build_trie(context *ctx) {
+    log::info("building vocab");
+    if (!check_ctx(ctx)) {
+        return false;
+    }
+    return !!ctx->vocab.build();
+}
+
+// void init_ids() {
+//     using ustr = unicode::ustr;
+//
+//     if (this->cls_id == (bert_token_t)-1) {
+//         this->cls_id = berts::trie::search_trie(this->trie, ustr{"[CLS]"});
+//     }
+//
+//     if (this->mask_id == (bert_token_t)-1) {
+//         this->mask_id = berts::trie::search_trie(this->trie, ustr{"[MASK]"});
+//     }
+//
+//     if (this->sep_id == (bert_token_t)-1) {
+//         this->sep_id = berts::trie::search_trie(this->trie, ustr{"[SEP]"});
+//     }
+//
+//     if (this->pad_id == (bert_token_t)-1) {
+//         this->pad_id = berts::trie::search_trie(this->trie, ustr{"[PAD]"});
+//     }
+//
+//     if (this->unk_id == (bert_token_t)-1) {
+//         this->unk_id = berts::trie::search_trie(this->trie, ustr{"[UNK]"});
+//     }
+// }
 
 // ref: transformers.BasicTokenizer
 // ' ', '\t', '\n' and '\r' are control characters,
@@ -55,7 +304,7 @@ static void clean_text_and_split(const ustr &in, std::vector<ustr> &out, const b
                 log::when(BERTS_LOG_INFO, [&C]() {
                     std::string msg;
                     if (C.is_pair()) {
-                        msg = berts::fmt(
+                        msg = berts::fmt::fmt(
                             "invalid sequence found: lone {} surrogate {:04x}",
                             C.hi ? "high" : "low",
                             C.hi ? (int)C.hi : (int)C.lo);
@@ -225,13 +474,13 @@ static bool wordpiece_tokenize(const std::vector<ustr> &words,
                 result.push_back(id);
                 root = cont_node;
                 log::when(BERTS_LOG_DEBUG, [&found, id] {
-                    log::debug(berts::fmt("  token: {} ({})", found.encode(), id));
+                    log::debug("  token: {} ({})", found.encode(), id);
                 });
             } else {
                 // not found
                 result.push_back(cond.unknown_token_id);
                 log::when(BERTS_LOG_WARN, [&rest] {
-                    log::warn(berts::fmt("  unknown token: {}", rest.encode()));
+                    log::warn("  unknown token: {}", rest.encode());
                 });
                 break;
             }
@@ -268,4 +517,4 @@ bool tokenize(const std::string &text,
     return true;
 }
 
-} // namespace berts::tokenizer
+} // namespace berts::tokenizers

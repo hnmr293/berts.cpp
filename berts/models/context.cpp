@@ -7,32 +7,59 @@
 using namespace berts;
 using namespace berts::models;
 
-struct berts_context {
+namespace berts::models {
+
+struct context {
     hparams hparams;
     std::unique_ptr<model> model;
-    gguf_context *gguf;
-    ggml_context *ctx;
-    bool initialized_success;
+    gguf_ctx gguf;
+    ggml_ctx ctx;
 
-    berts_context(const struct hparams &hparams, struct model *model, gguf_context *gguf, ggml_context *ctx)
+    context(const struct hparams &hparams, struct model *model, gguf_context *gguf, ggml_context *ggml)
         : hparams(hparams)
         , model(model)
         , gguf(gguf)
-        , ctx(ctx)
-        , initialized_success(false) {
-        if (!model->init_weight(this)) {
-            log::error("fail to load weights");
-            return;
+        , ctx(ggml) {}
+
+    context(const context &) = delete;
+
+    context(context &&other) noexcept
+        : hparams(std::move(other.hparams))
+        , model(std::move(other.model))
+        , gguf(std::move(other.gguf))
+        , ctx(std::move(other.ctx)) {}
+
+    ~context() {}
+
+    context &operator=(const context &) = delete;
+
+    context &operator=(context &&other) noexcept {
+        if (this != &other) {
+            hparams = other.hparams;
+            model = std::move(other.model);
+            gguf = std::move(other.gguf);
+            ctx = std::move(other.ctx);
         }
-        this->initialized_success = true;
+        return *this;
     }
+};
+
+} // namespace berts::models
+
+struct berts_context {
+    models::context model;
+    tokenizer_ctx tokenizer;
 };
 
 namespace berts::models {
 
-berts_context *new_context(const hparams &hparams, model *model, gguf_context *gguf, ggml_context *ctx) {
-    auto bert = new berts_context{hparams, model, gguf, ctx};
-    if (!bert->initialized_success) {
+berts_context *new_context(const hparams &hparams, model *model, gguf_context *gguf, ggml_context *ctx, tokenizers::context *tokenizer) {
+    auto bert = new berts_context{
+        {hparams, model, gguf, ctx},
+        tokenizer
+    };
+    if (!bert->model.model->init_weight(bert)) {
+        log::error("fail to load weights");
         delete bert;
         bert = nullptr;
     }
@@ -44,11 +71,11 @@ void free_context(berts_context *ctx) {
 }
 
 gguf_context *get_gguf_context(berts_context *ctx) {
-    return ctx->gguf;
+    return ctx->model.gguf;
 }
 
 ggml_context *get_ggml_context(berts_context *ctx) {
-    return ctx->ctx;
+    return ctx->model.ctx;
 }
 
 bool get_hparams(berts_context *ctx, hparams *params) {
@@ -57,14 +84,14 @@ bool get_hparams(berts_context *ctx, hparams *params) {
     }
 
     if (params) {
-        *params = ctx->hparams;
+        *params = ctx->model.hparams;
     }
 
     return true;
 }
 
 bool is_model_loaded(berts_context *ctx) {
-    return ctx && ctx->model;
+    return ctx && ctx->model.model;
 }
 
 ggml_tensor *eval(berts_context *ctx,
@@ -73,7 +100,7 @@ ggml_tensor *eval(berts_context *ctx,
         return nullptr;
     }
 
-    return ctx->model->eval(ctx, tokens);
+    return ctx->model.model->eval(ctx, tokens);
 }
 
 ggml_tensor *eval(berts_context *ctx,
@@ -83,7 +110,7 @@ ggml_tensor *eval(berts_context *ctx,
         return nullptr;
     }
 
-    return ctx->model->eval(ctx, tokens, segments);
+    return ctx->model.model->eval(ctx, tokens, segments);
 }
 
 ggml_tensor *model::eval(berts_context *ctx, const std::vector<bert_token_t> &tokens) {

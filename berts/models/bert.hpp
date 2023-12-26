@@ -48,7 +48,7 @@ struct model : public models::model {
     
     bool init_weight(berts_context *ctx) override;
     
-    bool load_vocab(berts_context *ctx) override;
+    //bool load_vocab(berts_context *ctx) override;
     
     ggml_tensor *eval(berts_context *ctx, const std::vector<bert_token_t> &tokens, const std::vector<bert_segment_t> &segments) override;
 };

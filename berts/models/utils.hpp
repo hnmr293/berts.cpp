@@ -4,6 +4,7 @@
 #include <string>
 #include "berts/berts.h"
 #include "berts/common/log.hpp"
+#include "berts/tokenizers/tokenizer.hpp"
 #include "ggml/ggml.h"
 
 namespace berts {
@@ -79,44 +80,38 @@ struct unique_ctx : private noncopyable<T> {
     operator bool() const { return !!this->ctx; }
 };
 
-struct berts_context_disposer {
-    using type = berts_context;
-    static void dispose(type *ctx) {
-        if (ctx)
-            berts_free(ctx);
+template <typename T>
+using disposer_t = void (*)(T *ctx);
+
+template <typename T, disposer_t<T> free>
+struct ctx_disposer {
+    using type = T;
+    static void dispose(T *ctx) {
+        if (ctx) {
+            (*free)(ctx);
+        }
     }
 };
 
-struct ggml_context_disposer {
-    using type = ggml_context;
-    static void dispose(type *ctx) {
-        if (ctx)
-            ggml_free(ctx);
-    }
-};
-
-struct gguf_context_disposer {
-    using type = gguf_context;
-    static void dispose(type *ctx) {
-        if (ctx)
-            gguf_free(ctx);
-    }
-};
+struct berts_context_disposer : public ctx_disposer<berts_context, berts_free> {};
+struct ggml_context_disposer : public ctx_disposer<ggml_context, ggml_free> {};
+struct gguf_context_disposer : public ctx_disposer<gguf_context, gguf_free> {};
+struct tokenizer_context_disposer : public ctx_disposer<tokenizers::context, tokenizers::free_context> {};
 
 /// @brief RAII class for berts_context
 struct berts_ctx : public unique_ctx<berts_ctx, berts_context_disposer> {
     berts_ctx()
-        : berts_ctx(nullptr) {}
+        : self_type(nullptr) {}
 
-    berts_ctx(berts_context *ctx)
+    berts_ctx(ctx_type *ctx)
         : inherited(ctx) {
         if (ctx) log::debug("berts_init @ {:016x}", (intptr_t)ctx);
     }
 
     berts_ctx(self_type &&ctx)
         : inherited(std::move(ctx)) {}
-    
-    self_type &operator=(self_type&&ctx) {
+
+    self_type &operator=(self_type &&ctx) {
         return inherited::operator=(std::move(ctx));
     }
 
@@ -128,20 +123,20 @@ struct berts_ctx : public unique_ctx<berts_ctx, berts_context_disposer> {
 /// @brief RAII class for ggml_context
 struct ggml_ctx : public unique_ctx<ggml_ctx, ggml_context_disposer> {
     ggml_ctx()
-        : ggml_ctx(nullptr) {}
+        : self_type(nullptr) {}
 
-    ggml_ctx(ggml_context *ctx)
-        : unique_ctx(ctx) {}
+    ggml_ctx(ctx_type *ctx)
+        : inherited(ctx) {}
 
     ggml_ctx(ggml_init_params params)
-        : unique_ctx(ggml_init(params)) {
+        : self_type(ggml_init(params)) {
         if (ctx) log::debug("ggml_init @ {:016x}", (intptr_t)ctx);
     }
 
     ggml_ctx(self_type &&ctx)
         : inherited(std::move(ctx)) {}
-    
-    self_type &operator=(self_type&&ctx) {
+
+    self_type &operator=(self_type &&ctx) {
         return inherited::operator=(std::move(ctx));
     }
 
@@ -153,23 +148,23 @@ struct ggml_ctx : public unique_ctx<ggml_ctx, ggml_context_disposer> {
 /// @brief RAII class for gguf_context
 struct gguf_ctx : public unique_ctx<gguf_ctx, gguf_context_disposer> {
     gguf_ctx()
-        : gguf_ctx(nullptr) {}
+        : self_type(nullptr) {}
 
-    gguf_ctx(gguf_context *ctx)
-        : unique_ctx(ctx) {}
+    gguf_ctx(ctx_type *ctx)
+        : inherited(ctx) {}
 
     gguf_ctx(const std::string &path, gguf_init_params params)
-        : unique_ctx(gguf_init_from_file(path.c_str(), params)) {
+        : self_type(gguf_init_from_file(path.c_str(), params)) {
         if (ctx) log::debug("gguf_init @ {:016x}", (intptr_t)ctx);
     }
 
     gguf_ctx(const std::string &path, bool no_alloc, ggml_context **ctx)
-        : gguf_ctx(path, {.no_alloc = no_alloc, .ctx = ctx}) {}
+        : self_type(path, {.no_alloc = no_alloc, .ctx = ctx}) {}
 
     gguf_ctx(self_type &&ctx)
         : inherited(std::move(ctx)) {}
-    
-    self_type &operator=(self_type&&ctx) {
+
+    self_type &operator=(self_type &&ctx) {
         return inherited::operator=(std::move(ctx));
     }
 
@@ -218,6 +213,30 @@ struct gg_ctx {
 
     operator bool() const {
         return gguf.operator bool() && ggml.operator bool();
+    }
+};
+
+struct tokenizer_ctx : public unique_ctx<tokenizer_ctx, tokenizer_context_disposer> {
+    tokenizer_ctx()
+        : self_type(nullptr) {}
+
+    tokenizer_ctx(const berts_tokenize_info &cond)
+        : self_type(tokenizers::new_context(cond)) {}
+
+    tokenizer_ctx(ctx_type *ctx)
+        : inherited(ctx) {
+        if (ctx) log::debug("tokenizer_init @ {:016x}", (intptr_t)ctx);
+    }
+
+    tokenizer_ctx(self_type &&ctx)
+        : inherited(std::move(ctx)) {}
+
+    self_type &operator=(self_type &&ctx) {
+        return inherited::operator=(std::move(ctx));
+    }
+
+    ~tokenizer_ctx() {
+        if (ctx) log::debug("tokenizer_free @ {:016x}", (intptr_t)ctx);
     }
 };
 

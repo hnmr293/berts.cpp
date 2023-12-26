@@ -15,5 +15,6 @@ static_assert(uniq<berts_ctx>);
 static_assert(uniq<ggml_ctx>);
 static_assert(uniq<gguf_ctx>);
 static_assert(uniq<gg_ctx>);
+static_assert(uniq<tokenizer_ctx>);
 
 }
