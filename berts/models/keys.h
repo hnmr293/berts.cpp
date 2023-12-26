@@ -32,6 +32,9 @@
 // type: u32 [hidden_act]
 #define BERTS_KEY_HPARAM_HIDDEN_ACT "berts.hidden_act"
 
+// type: f64 *optional, defaults to `1e-12`
+#define BERTS_KEY_HPARAM_LN_EPS "berts.layer_norm_eps"
+
 //
 // tokenizer_config.json
 //

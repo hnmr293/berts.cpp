@@ -32,4 +32,3 @@ $ ./berts/main
 - zstd vocab
 - load gguf from memory
 - load gguf from std::istream
-- move eps from `berts_context` to `internal::hparams`

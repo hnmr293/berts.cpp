@@ -114,6 +114,7 @@ def convert(repo_id: str, cache_dir: str|None, output_path: str):
     w.add_uint32(K['BERTS_KEY_HPARAM_INTERMEDIATE_DIM'], config.intermediate_size)
     w.add_uint32(K['BERTS_KEY_HPARAM_HIDDEN_ACT'], 0) # GeLU
     assert model.config.hidden_act == 'gelu'
+    w.add_float64(K['BERTS_KEY_HPARAM_LN_EPS'], config.layer_norm_eps)
 
     # tokenizer params
     if tokenizer.cls_token_id is not None:

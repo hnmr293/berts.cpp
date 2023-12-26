@@ -263,6 +263,7 @@ berts_context *load_from_file(const std::string &path) {
     hparams.max_tokens = gguf_u32(gguf, BERTS_KEY_HPARAM_MAX_TOKENS);
     hparams.intermediate_dim = gguf_u32(gguf, BERTS_KEY_HPARAM_INTERMEDIATE_DIM);
     hparams.hidden_act = static_cast<hidden_act>(gguf_u32(gguf, BERTS_KEY_HPARAM_HIDDEN_ACT));
+    hparams.eps = gguf_f64(gguf, BERTS_KEY_HPARAM_LN_EPS);
 
     log::info(
         "hparams\n"
@@ -273,7 +274,8 @@ berts_context *load_from_file(const std::string &path) {
         "  attn_heads: {}\n"
         "  max_tokens: {}\n"
         "  intermediate_dim: {}\n"
-        "  hidden_act: {}",
+        "  hidden_act: {}\n"
+        "  eps: {}",
         (int)hparams.architecture,
         hparams.vocab_size,
         hparams.hidden_dim,
@@ -281,7 +283,8 @@ berts_context *load_from_file(const std::string &path) {
         hparams.attn_heads,
         hparams.max_tokens,
         hparams.intermediate_dim,
-        (int)hparams.hidden_act);
+        (int)hparams.hidden_act,
+        hparams.eps);
 
     const auto type = static_cast<ggml_type>(gguf_u32(gguf, "general.file_type"));
 

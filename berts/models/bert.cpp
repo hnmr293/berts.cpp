@@ -197,7 +197,7 @@ ggml_tensor *model::eval(berts_context *ctx,
 
     hparams hparams{};
     get_hparams(ctx, &hparams);
-    auto eps = static_cast<float>(get_eps(ctx));
+    auto eps = hparams.eps;
 
     ggml_ctx ggml{};
 

@@ -95,10 +95,6 @@ BERTS_API berts_context *berts_load_from_file(const char *path);
 
 // BERTS_API berts_context *berts_load_from_memory(const uint8_t *data, size_t data_len);
 
-BERTS_API void berts_set_eps(berts_context *ctx, double eps);
-
-BERTS_API double berts_get_eps(berts_context *ctx);
-
 //
 // inference
 //

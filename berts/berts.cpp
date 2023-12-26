@@ -60,14 +60,6 @@ berts_context *berts_load_from_file(const char *path) {
 //     return gguf::load_from_memory(const uint8_t *data, size_t data_len);
 // }
 
-void berts_set_eps(berts_context *ctx, double eps) {
-    internal::set_eps(ctx, eps);
-}
-
-double berts_get_eps(berts_context *ctx) {
-    return internal::get_eps(ctx);
-}
-
 ggml_tensor *berts_eval(berts_context *ctx,
                         const bert_token_t *tokens,
                         const bert_segment_t *segments,
