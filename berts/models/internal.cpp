@@ -87,7 +87,7 @@ std::string id_to_token(berts_context *ctx, bert_token_t token_id) {
     }
 
     if (ctx->vocab.id_to_token.size() <= token_id) {
-        log::error(berts::fmt("token id {} is not found (max={})", token_id, ctx->vocab.id_to_token.size()));
+        log::error("token id {} is not found (max={})", token_id, ctx->vocab.id_to_token.size());
         return "";
     }
 
@@ -101,7 +101,7 @@ bert_token_t token_to_id(berts_context *ctx, const std::string &token) {
 
     const auto p = ctx->vocab.token_to_id.find(token);
     if (p == ctx->vocab.token_to_id.end()) {
-        log::error(berts::fmt("token {} is not found", token));
+        log::error("token {} is not found", token);
         return (bert_token_t)-1;
     }
 
@@ -114,7 +114,7 @@ bool add_token(berts_context *ctx, const std::string &token) {
     }
 
     if (has_token(ctx, token)) {
-        log::warn(berts::fmt("token {} already exists", token));
+        log::warn("token {} already exists", token);
         return false;
     }
 
