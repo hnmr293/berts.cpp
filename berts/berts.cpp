@@ -1,12 +1,10 @@
 #include "berts/berts.h"
 #include "berts/berts.hpp"
-
-#include "berts/common/log.hpp"
-#include "berts/models/context.hpp"
 #include "berts/models/gguf.hpp"
-#include "berts/tokenizers/tokenizer.hpp"
+#include "berts/models/internal.hpp"
+#include "berts/models/log.hpp"
 
-namespace models = berts::models;
+namespace internal = berts::internal;
 namespace gguf = berts::gguf;
 namespace log = berts::log;
 
@@ -51,7 +49,7 @@ void berts_set_log_file(FILE *file) {
 }
 
 void berts_free(berts_context *ctx) {
-    models::free_context(ctx);
+    internal::free_context(ctx);
 }
 
 berts_context *berts_load_from_file(const char *path) {
@@ -62,41 +60,12 @@ berts_context *berts_load_from_file(const char *path) {
 //     return gguf::load_from_memory(const uint8_t *data, size_t data_len);
 // }
 
-void berts_init_tokenize_info_default(berts_tokenize_info *info) {
-    if (!info) return;
-    info->normalize = true;
-    info->remove_replacement_char = true;
-    info->remove_null_char = true;
-    info->remove_control_char = true;
-    info->normalize_whitespaces = true;
-    info->add_space_around_cjk_char = true;
-    info->do_lower_case = true;
-    info->strip_accents = true;
-    info->split_on_punc = true;
+void berts_set_eps(berts_context *ctx, double eps) {
+    internal::set_eps(ctx, eps);
 }
 
-void berts_init_tokenize_info_no_basic(berts_tokenize_info *info) {
-    if (!info) return;
-    info->normalize = true;
-    info->remove_replacement_char = false;
-    info->remove_null_char = false;
-    info->remove_control_char = false;
-    info->normalize_whitespaces = true;
-    info->add_space_around_cjk_char = false;
-    info->do_lower_case = false;
-    info->strip_accents = false;
-    info->split_on_punc = false;
-}
-
-size_t berts_tokenize(berts_context *ctx,
-                      const char *text,
-                      const berts_tokenize_info *cond,
-                      bert_token_t *out) {
-    if (!ctx) return (size_t)-1;
-    if (!text) return (size_t)-1;
-    if (!cond) return (size_t)-1;
-
-    //tokenizers::
+double berts_get_eps(berts_context *ctx) {
+    return internal::get_eps(ctx);
 }
 
 ggml_tensor *berts_eval(berts_context *ctx,
@@ -109,7 +78,7 @@ ggml_tensor *berts_eval(berts_context *ctx,
     std::vector<bert_segment_t> segm_vec(token_count);
     std::copy(segments, segments + token_count, segm_vec.data());
 
-    return models::eval(ctx, token_vec, segm_vec);
+    return internal::eval(ctx, token_vec, segm_vec);
 }
 
 namespace berts {
@@ -120,13 +89,13 @@ namespace berts {
 
 ggml_tensor *eval(berts_context *ctx,
                   const std::vector<bert_token_t> &tokens) {
-    return models::eval(ctx, tokens);
+    return internal::eval(ctx, tokens);
 }
 
 ggml_tensor *eval(berts_context *ctx,
                   const std::vector<bert_token_t> &tokens,
                   const std::vector<bert_segment_t> &segments) {
-    return models::eval(ctx, tokens, segments);
+    return internal::eval(ctx, tokens, segments);
 }
 
 bool model_quantize(const std::string &input_path,

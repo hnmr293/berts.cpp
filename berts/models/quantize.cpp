@@ -5,9 +5,9 @@
 #include <ranges>
 #include <regex>
 #include "berts/berts.h"
-#include "berts/common/log.hpp"
-#include "berts/models/context.hpp"
 #include "berts/models/gguf.hpp"
+#include "berts/models/internal.hpp"
+#include "berts/models/log.hpp"
 #include "berts/models/utils.hpp"
 
 using namespace berts;
@@ -54,7 +54,7 @@ static inline bool quantize(const ggml_tensor *t, ggml_type new_type, conv_buf &
         std::transform((ggml_fp16_t *)t->data, (ggml_fp16_t *)t->data + n, data, ggml_fp16_to_fp32);
         break;
     default:
-        log::error("input type must be f16 or f32, but {}", gguf::type_to_str(t->type));
+        log::error(berts::fmt("input type must be f16 or f32, but {}", gguf::type_to_str(t->type)));
         return false;
     }
 
@@ -76,14 +76,14 @@ bool berts_model_quantize(const char *input_path,
 
     berts_ctx ctx{berts_load_from_file(input_path)};
     if (!ctx) {
-        log::error("fail to load model: {}", input_path);
+        log::error(berts::fmt("fail to load model: {}", input_path));
         return false;
     }
 
-    log::info("model loaded: {}", input_path);
+    log::info(berts::fmt("model loaded: {}", input_path));
 
-    auto gguf_src = models::get_gguf_context(ctx);
-    auto ggml_src = models::get_ggml_context(ctx);
+    auto gguf_src = internal::get_gguf_context(ctx);
+    auto ggml_src = internal::get_ggml_context(ctx);
 
     gguf_ctx gguf_dst{gguf_init_empty()};
 
@@ -93,7 +93,7 @@ bool berts_model_quantize(const char *input_path,
 
     std::ofstream out{output_path, std::ios::binary};
     if (!out) {
-        log::error("failed to open {}", output_path);
+        log::error(berts::fmt("failed to open {}", output_path));
         return false;
     }
 
@@ -164,7 +164,7 @@ bool berts_model_quantize(const char *input_path,
         write_zeros(out, pad);
 
         log::when(BERTS_LOG_INFO, [=]() {
-            log::info(
+            const std::string msg = berts::fmt(
                 "{}:\n"
                 "  quantized = {}\n"
                 "  n_dims = {}\n"
@@ -174,6 +174,7 @@ bool berts_model_quantize(const char *input_path,
                 t->n_dims,
                 size_org / 1024.0f,
                 size_new / 1024.0f);
+            log::info(msg);
         });
     }
 
@@ -193,7 +194,7 @@ bool berts_model_quantize(const char *input_path,
     // dump info
     //
     log::when(BERTS_LOG_INFO, [=, &buffer]() {
-        std::string msg = berts::fmt::fmt(
+        std::string msg = berts::fmt(
             "========================================\n"
             "original size  = {} ({:.1f} MiB)\n"
             "quantized size = {} ({:.1f} MiB)\n",
@@ -207,7 +208,7 @@ bool berts_model_quantize(const char *input_path,
             msg += "[histogram]\n";
             for (const auto [i, v] : buffer.hist | std::views::enumerate) {
                 float vv = v / hist_sum;
-                msg += berts::fmt::fmt("  bin #{}: {:.3f}\n", i, vv);
+                msg += berts::fmt("  bin #{}: {:.3f}\n", i, vv);
             }
         }
         msg += "========================================";

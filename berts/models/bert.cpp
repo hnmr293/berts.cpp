@@ -5,17 +5,19 @@
 #include <cmath>
 #include <cstring>
 #include <ranges>
-#include "berts/common/keys.h"
-#include "berts/models/context.hpp"
 #include "berts/models/utils.hpp"
 
-using namespace berts::models;
-
 namespace berts::bert {
+
+using namespace berts::internal;
 
 #define KEY_PREFIX "berts.bert."
 #define KEY(s) KEY_PREFIX #s
 #define KEY_N(pre, post) KEY_PREFIX #pre ".{}." #post
+
+// vocab keys
+const char *BERTS_KEY_BERT_VOCAB_SIZE = KEY(vocab_size);
+const char *BERTS_KEY_BERT_VOCAB_DATA = KEY(vocab_data);
 
 // embedding keys
 const char *BERTS_KEY_BERT_EMB_TOKEN = KEY(embeddings.word_embeddings.weight);
@@ -45,9 +47,9 @@ const char *BERTS_KEY_BERT_ENC_N_LN_OUT_B = KEY_N(encoder.layer, output.LayerNor
 static inline ggml_tensor *tensor(ggml_context *ctx, const char *key) {
     auto t = ggml_get_tensor(ctx, key);
     if (!t) {
-        log::error("failed to read tensor: {}", key);
+        log::error(berts::fmt("failed to read tensor: {}", key));
     }
-    log::debug("  store {}", key);
+    log::debug(berts::fmt("  store {}", key));
     return t;
 }
 
@@ -75,7 +77,7 @@ bool model::init_weight(berts_context *ctx) {
 #define GET_TENSOR_N(dest, key, n)           \
     do {                                     \
         std::string name =                   \
-            berts::fmt::fmt((key), (n));     \
+            berts::fmt((key), (n));          \
         auto v = tensor(ggml, name.c_str()); \
         if (!v) {                            \
             return false;                    \
@@ -121,8 +123,8 @@ bool model::init_weight(berts_context *ctx) {
         for (int i = 0; i < n_tensors; ++i) {
             const std::string tensor_name{gguf_get_tensor_name(gguf, i)};
             if (std::find(stored.begin(), stored.end(), tensor_name) == stored.end()) {
-                if (tensor_name != BERTS_KEY_ALL_VOCAB_SIZE && tensor_name != BERTS_KEY_ALL_VOCAB_DATA) {
-                    log::info("  unused {} {}", i, tensor_name);
+                if (tensor_name != BERTS_KEY_BERT_VOCAB_SIZE && tensor_name != BERTS_KEY_BERT_VOCAB_DATA) {
+                    log::info(berts::fmt("  unused {} {}", i, tensor_name));
                 }
             }
         }
@@ -131,67 +133,40 @@ bool model::init_weight(berts_context *ctx) {
     return true;
 }
 
-#if 0
 bool model::load_vocab(berts_context *ctx) {
-    log::info("loading vocab");
-
     if (!check_ctx(ctx)) {
         return false;
     }
 
-    auto gguf = get_gguf_context(ctx);
     auto ggml = get_ggml_context(ctx);
 
-    auto vocab_size = ggml_get_tensor(ggml, BERTS_KEY_ALL_VOCAB_SIZE);
-    auto vocab_data = ggml_get_tensor(ggml, BERTS_KEY_ALL_VOCAB_DATA);
+    auto vocab_size = ggml_get_tensor(ggml, BERTS_KEY_BERT_VOCAB_SIZE);
+    auto vocab_data = ggml_get_tensor(ggml, BERTS_KEY_BERT_VOCAB_DATA);
 
     if (!vocab_size) {
-        log::error("key {} is not found", BERTS_KEY_ALL_VOCAB_SIZE);
+        log::error(berts::fmt("key {} is not found", BERTS_KEY_BERT_VOCAB_SIZE));
         return false;
     }
 
     if (!vocab_data) {
-        log::error("key {} is not found", BERTS_KEY_ALL_VOCAB_DATA);
+        log::error(berts::fmt("key {} is not found", BERTS_KEY_BERT_VOCAB_DATA));
         return false;
     }
 
     if (vocab_size->n_dims != 1 || vocab_data->n_dims != 1) {
-        log::error("invalid shape: vocab_size={}, vocab_data={}", vocab_size->n_dims, vocab_data->n_dims);
+        log::error(berts::fmt("invalid shape: vocab_size={}, vocab_data={}", vocab_size->n_dims, vocab_data->n_dims));
         return false;
     }
 
     if (vocab_size->type != GGML_TYPE_I32) {
-        log::error("invalid type of vocab_size: {}", (int)vocab_size->type);
+        log::error(berts::fmt("invalid type of vocab_size: {}", (int)vocab_size->type));
         return false;
     }
 
     if (vocab_data->type != GGML_TYPE_I8) {
-        log::error("invalid type of vocab_data: {}", (int)vocab_data->type);
+        log::error(berts::fmt("invalid type of vocab_data: {}", (int)vocab_data->type));
         return false;
     }
-
-#define get_id(var, key)                         \
-    bert_token_t var;                            \
-    {                                            \
-        auto index = gguf_find_key(gguf, key);   \
-        if (index < 0) {                         \
-            var = (bert_token_t)-1;              \
-        } else {                                 \
-            var = gguf_get_val_u32(gguf, index); \
-        }                                        \
-    }
-
-    get_id(cls_id, BERTS_KEY_TOKENIZER_CLS_ID);
-    get_id(mask_id, BERTS_KEY_TOKENIZER_MASK_ID);
-    get_id(pad_id, BERTS_KEY_TOKENIZER_PAD_ID);
-    get_id(sep_id, BERTS_KEY_TOKENIZER_SEP_ID);
-    get_id(unk_id, BERTS_KEY_TOKENIZER_UNK_ID);
-
-    set_cls_id(ctx, cls_id);
-    set_mask_id(ctx, mask_id);
-    set_pad_id(ctx, pad_id);
-    set_sep_id(ctx, sep_id);
-    set_unk_id(ctx, unk_id);
 
     const int64_t vocab_count = vocab_size->ne[0];
     auto token_lengths = static_cast<const int32_t *>(vocab_size->data);
@@ -202,7 +177,7 @@ bool model::load_vocab(berts_context *ctx) {
         std::string token{&data[p], token_len};
         p += token_len;
 
-        models::add_token(ctx, token);
+        internal::add_token(ctx, token);
     }
 
     if (p != vocab_data->ne[0]) {
@@ -212,7 +187,6 @@ bool model::load_vocab(berts_context *ctx) {
 
     return true;
 }
-#endif
 
 ggml_tensor *model::eval(berts_context *ctx,
                          const std::vector<bert_token_t> &tokens,
@@ -226,7 +200,7 @@ ggml_tensor *model::eval(berts_context *ctx,
 
     hparams hparams{};
     get_hparams(ctx, &hparams);
-    auto eps = hparams.eps;
+    auto eps = static_cast<float>(get_eps(ctx));
 
     ggml_ctx ggml{};
 

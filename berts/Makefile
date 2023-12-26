@@ -33,24 +33,15 @@ MK_CXXFLAGS = -std=c++23 -fPIC
 # avoid w64devkit bug
 MK_CPPFLAGS += -fno-rtti
 
-# add external library info
 ifdef BERTS_USE_FMTLIB_FMT
 MK_CPPFLAGS += -DBERTS_USE_FMTLIB_FMT
 MK_LDFLAGS += -lfmt
 ifdef BERTS_FMTLIB_FMT_INCLUDE
-MK_CXXFLAGS += -I'$(BERTS_FMTLIB_FMT_INCLUDE)'
+MK_CXXFLAGS += -I$(BERTS_FMTLIB_FMT_INCLUDE)
 endif
 ifdef BERTS_FMTLIB_FMT_LIB
-MK_LDFLAGS += -L'$(BERTS_FMTLIB_FMT_LIB)'
+MK_LDFLAGS += -L$(BERTS_FMTLIB_FMT_LIB)
 endif
-endif
-
-ifdef BERTS_ICU_INCLUDE
-MK_CPPFLAGS += -I'$(BERTS_ICU_INCLUDE)'
-endif
-
-ifdef BERTS_ICU_LIB
-MK_LDFLAGS += -L'$(BERTS_ICU_LIB)'
 endif
 
 #
@@ -140,29 +131,17 @@ bert.o: models/bert.cpp models/bert.hpp $(COMMON_HEADERS)
 quantize.o: models/quantize.cpp $(COMMON_HEADERS)
 	$(CXX) $(CXXFLAGS) -c $< -o $@
 
-tokenizer.o: tokenizers/tokenizer.cpp tokenizers/tokenizer.hpp $(COMMON_HEADERS)
+internal.o: models/internal.cpp models/internal.hpp $(COMMON_HEADERS)
 	$(CXX) $(CXXFLAGS) -c $< -o $@
 
-trie.o: tokenizers/trie.cpp tokenizers/trie.hpp $(COMMON_HEADERS)
-	$(CXX) $(CXXFLAGS) -c $< -o $@
-
-unicode.o: tokenizers/unicode.cpp tokenizers/unicode.hpp $(COMMON_HEADERS)
-	$(CXX) $(CXXFLAGS) -c $< -o $@
-
-context.o: models/context.cpp models/context.hpp $(COMMON_HEADERS)
-	$(CXX) $(CXXFLAGS) -c $< -o $@
-
-log.o: common/log.cpp common/log.hpp $(COMMON_HEADERS)
-	$(CXX) $(CXXFLAGS) -c $< -o $@
-
-utils.o: models/utils.cpp models/utils.hpp $(COMMON_HEADERS)
+log.o: models/log.cpp models/log.hpp $(COMMON_HEADERS)
 	$(CXX) $(CXXFLAGS) -c $< -o $@
 
 clean:
 	rm -rf *.o *.lib *.so *.dll *.exe
 	rm -f ../lib/libberts.a ../lib/berts.a ../lib/libberts.lib ../lib/berts.lib ../lib/libberts.so ../lib/berts.so ../lib/libberts.dll ../lib/berts.dll
 
-OBJS += utils.o berts.o gguf.o bert.o quantize.o tokenizer.o trie.o unicode.o context.o log.o
+OBJS += berts.o gguf.o bert.o quantize.o internal.o log.o 
 
 $(STATIC_LIB): $(OBJS)
 	ar rcs $@ $^

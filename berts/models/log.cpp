@@ -1,4 +1,4 @@
-#include "berts/common/log.hpp"
+#include "berts/models/log.hpp"
 
 namespace berts::log {
 
