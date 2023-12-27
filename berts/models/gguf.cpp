@@ -103,8 +103,8 @@ std::string type_to_str(ggml_type type) {
 
 static gg_ctx init_gg(const std::string &path, size_t *ctx_size) {
     gg_ctx gg{path, true};
-    gguf_context *gguf = gg.gguf;
-    ggml_context *ggml_meta = gg.ggml;
+    auto &gguf = gg.gguf();
+    auto &ggml_meta = gg.ggml();
 
     if (!gg || !gguf || !ggml_meta) {
         return gg;
@@ -153,7 +153,7 @@ static gg_ctx init_gg(const std::string &path, size_t *ctx_size) {
             n_tensors,
             n_kv);
 
-        log::when(BERTS_LOG_DEBUG, [n_kv, gguf]() {
+        log::when(BERTS_LOG_DEBUG, [n_kv, &gguf]() {
             for (int i = 0; i < n_kv; ++i) {
                 auto key = gguf_get_key(gguf, i);
                 log::debug("  key {0}: {1}", i, key);
@@ -207,8 +207,8 @@ berts_context *load_from_file(const std::string &path) {
     size_t ctx_size;
     gg_ctx gg = init_gg(path, &ctx_size);
 
-    gguf_context *gguf = gg.gguf;
-    ggml_context *ggml_meta = gg.ggml;
+    auto &gguf = gg.gguf();
+    auto &ggml_meta = gg.ggml();
 
     if (!gg || !gguf || !ggml_meta) {
         log::error("fail to load gguf file: {}", path);
@@ -316,7 +316,7 @@ berts_context *load_from_file(const std::string &path) {
         return nullptr;
     }
 
-    auto ctx = internal::new_context(hparams, model, gg.gguf.release(), ggml.release());
+    auto ctx = internal::new_context(hparams, model, gg.gguf().release(), ggml.release());
     return ctx;
 }
 

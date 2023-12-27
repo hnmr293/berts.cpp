@@ -12,10 +12,24 @@ namespace berts {
 // resources
 //
 
-template <typename T, typename Disposer>
-struct unique_ctx {
+template <typename T>
+using disposer_func_t = void (*)(T *ctx);
+
+template <typename T, disposer_func_t<T> free_func>
+struct context_disposer {
     using ctx_type = T;
-    using self_type = unique_ctx<T, Disposer>;
+    static void dispose(ctx_type *ctx) {
+        if (ctx) {
+            free_func(ctx);
+        }
+    }
+};
+
+template <typename Self, typename Disposer>
+struct unique_ctx {
+    using ctx_type = Disposer::ctx_type;
+    using self_type = Self;
+    using inherited = unique_ctx<Self, Disposer>;
 
     ctx_type *ctx;
 
@@ -23,31 +37,37 @@ struct unique_ctx {
         : unique_ctx(nullptr) {}
 
     unique_ctx(ctx_type *ctx)
-        : ctx(ctx) {}
+        : ctx(ctx) {
+        if (ctx) {
+            reinterpret_cast<self_type*>(this)->on_init(ctx);
+        }
+    }
 
-    unique_ctx(const self_type &) = delete;
+    unique_ctx(const inherited &) = delete;
 
-    unique_ctx(self_type &&other) noexcept
-        : ctx(other.ctx) {
+    unique_ctx(inherited &&other) noexcept
+        : inherited(other.ctx) {
         other.ctx = nullptr;
     }
 
-    self_type &operator=(const self_type &) = delete;
+    self_type &operator=(const inherited &) = delete;
 
-    self_type &operator=(self_type &&other) noexcept {
+    self_type &operator=(inherited &&other) noexcept {
         if (this != &other) {
             this->dispose();
             this->ctx = other.ctx;
             other.ctx = nullptr;
         }
+        return *reinterpret_cast<self_type*>(this);
     }
 
-    virtual ~unique_ctx() {
+    ~unique_ctx() {
         this->dispose();
     }
 
     void dispose() {
         if (this->ctx) {
+            reinterpret_cast<self_type*>(this)->on_dispose(this->ctx);
             Disposer::dispose(this->ctx);
             this->ctx = nullptr;
         }
@@ -70,110 +90,99 @@ struct unique_ctx {
     operator bool() const { return !!this->ctx; }
 };
 
-struct berts_context_disposer {
-    static void dispose(berts_context *ctx) {
-        if (ctx)
-            berts_free(ctx);
-    }
-};
+//
+// berts_ctx
+//
 
-struct ggml_context_disposer {
-    static void dispose(ggml_context *ctx) {
-        if (ctx)
-            ggml_free(ctx);
-    }
-};
-
-struct gguf_context_disposer {
-    static void dispose(gguf_context *ctx) {
-        if (ctx)
-            gguf_free(ctx);
-    }
-};
+using berts_disposer = context_disposer<berts_context, berts_free>;
 
 /// @brief RAII class for berts_context
-struct berts_ctx : public unique_ctx<berts_context, berts_context_disposer> {
-    berts_ctx()
-        : berts_ctx(nullptr) {}
+struct berts_ctx : public unique_ctx<berts_ctx, berts_disposer> {
+    using inherited::inherited;
+    using inherited::operator=;
 
-    berts_ctx(berts_context *ctx)
-        : unique_ctx(ctx) { log::debug("berts_init @ {:016x}", (intptr_t)ctx); }
+    void on_init(const ctx_type *ctx) {
+        log::debug("berts_init @ {:016x}", (intptr_t)ctx);
+    }
 
-    ~berts_ctx() { log::debug("berts_free @ {:016x}", (intptr_t)ctx); }
+    void on_dispose(const ctx_type *ctx) {
+        log::debug("berts_free @ {:016x}", (intptr_t)ctx);
+    }
 };
+
+//
+// ggml_ctx
+//
+
+using ggml_disposer = context_disposer<ggml_context, ggml_free>;
 
 /// @brief RAII class for ggml_context
-struct ggml_ctx : public unique_ctx<ggml_context, ggml_context_disposer> {
-    ggml_ctx()
-        : ggml_ctx(nullptr) {}
-
-    ggml_ctx(ggml_context *ctx)
-        : unique_ctx(ctx) {}
+struct ggml_ctx : public unique_ctx<ggml_ctx, ggml_disposer> {
+    using inherited::inherited;
+    using inherited::operator=;
 
     ggml_ctx(ggml_init_params params)
-        : unique_ctx(ggml_init(params)) { log::debug("ggml_init @ {:016x}", (intptr_t)ctx); }
+        : inherited(ggml_init(params)) {}
 
-    ~ggml_ctx() { log::debug("ggml_free @ {:016x}", (intptr_t)ctx); }
+    void on_init(const ctx_type *ctx) {
+        log::debug("ggml_init @ {:016x}", (intptr_t)ctx);
+    }
+
+    void on_dispose(const ctx_type *ctx) {
+        log::debug("ggml_free @ {:016x}", (intptr_t)ctx);
+    }
 };
+
+//
+// gguf_ctx
+//
+
+using gguf_disposer = context_disposer<gguf_context, gguf_free>;
 
 /// @brief RAII class for gguf_context
-struct gguf_ctx : public unique_ctx<gguf_context, gguf_context_disposer> {
-    gguf_ctx()
-        : gguf_ctx(nullptr) {}
-
-    gguf_ctx(gguf_context *ctx)
-        : unique_ctx(ctx) {}
+struct gguf_ctx : public unique_ctx<gguf_ctx, gguf_disposer> {
+    using inherited::inherited;
+    using inherited::operator=;
 
     gguf_ctx(const std::string &path, gguf_init_params params)
-        : unique_ctx(gguf_init_from_file(path.c_str(), params)) { log::debug("gguf_init @ {:016x}", (intptr_t)ctx); }
+        : inherited(gguf_init_from_file(path.c_str(), params)) {}
 
     gguf_ctx(const std::string &path, bool no_alloc, ggml_context **ctx)
-        : gguf_ctx(path, {.no_alloc = no_alloc, .ctx = ctx}) {}
+        : self_type(path, {.no_alloc = no_alloc, .ctx = ctx}) {}
 
-    ~gguf_ctx() { log::debug("gguf_free @ {:016x}", (intptr_t)ctx); }
+    void on_init(const ctx_type *ctx) {
+        log::debug("gguf_init @ {:016x}", (intptr_t)ctx);
+    }
+
+    void on_dispose(const ctx_type *ctx) {
+        log::debug("gguf_free @ {:016x}", (intptr_t)ctx);
+    }
 };
 
-/// @brief RAII class for gguf_context AND ggml_context
-struct gg_ctx {
-    ggml_ctx ggml;
-    gguf_ctx gguf;
+//
+// gg_ctx
+//
 
-    gg_ctx()
-        : ggml()
-        , gguf() {}
+/// @brief RAII class for gguf_context AND ggml_context
+struct gg_ctx : public std::pair<ggml_ctx, gguf_ctx> {
+    using inherited = std::pair<ggml_ctx, gguf_ctx>;
+    using inherited::inherited;
 
     gg_ctx(const std::string &path, bool no_alloc)
-        : ggml()
-        , gguf(path, no_alloc, ggml.ptr()) {}
-
-    gg_ctx(const gg_ctx &) = delete;
-
-    gg_ctx(gg_ctx &&other) noexcept
-        : ggml(other.ggml.release())
-        , gguf(other.gguf.release()) {}
-
-    gg_ctx &operator=(const gg_ctx &) = delete;
-
-    gg_ctx &operator=(gg_ctx &&other) noexcept {
-        if (this != &other) {
-            this->dispose();
-            this->ggml.ctx = other.ggml.release();
-            this->gguf.ctx = other.gguf.release();
-        }
-        return *this;
+        : inherited() {
+        second = gguf_ctx{path, no_alloc, first.ptr()};
     }
 
-    ~gg_ctx() {
-        this->dispose();
+    gguf_ctx &gguf() {
+        return second;
     }
 
-    void dispose() {
-        this->ggml.dispose();
-        this->gguf.dispose();
+    ggml_ctx &ggml() {
+        return first;
     }
 
     operator bool() const {
-        return gguf.operator bool() && ggml.operator bool();
+        return first && second;
     }
 };
 

@@ -137,11 +137,14 @@ internal.o: models/internal.cpp models/internal.hpp $(COMMON_HEADERS)
 log.o: models/log.cpp models/log.hpp $(COMMON_HEADERS)
 	$(CXX) $(CXXFLAGS) -c $< -o $@
 
+utils.o: models/utils.cpp models/utils.hpp $(COMMON_HEADERS)
+	$(CXX) $(CXXFLAGS) -c $< -o $@
+
 clean:
 	rm -rf *.o *.lib *.so *.dll *.exe
 	rm -f ../lib/libberts.a ../lib/berts.a ../lib/libberts.lib ../lib/berts.lib ../lib/libberts.so ../lib/berts.so ../lib/libberts.dll ../lib/berts.dll
 
-OBJS += berts.o gguf.o bert.o quantize.o internal.o log.o 
+OBJS += utils.o berts.o gguf.o bert.o quantize.o internal.o log.o 
 
 $(STATIC_LIB): $(OBJS)
 	ar rcs $@ $^
