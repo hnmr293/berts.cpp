@@ -56,7 +56,6 @@ dev/berts.cpp $ BERTS_DEBUG=1 BERTS_ICU_INCLUDE='C:/Program Files (x86)/Windows 
 
 ## TODO
 
-- vocab_size -> 8-bit
 - never_split (any model?)
 - pooling
 - inference

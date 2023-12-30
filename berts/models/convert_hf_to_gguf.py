@@ -165,12 +165,15 @@ def convert(repo_id: str, cache_dir: str|None, output_path: str):
             token = f'[unused{unused}]'
             unused += 1
         bytes = token.encode('utf-8')
-        token_lengths.append(len(bytes))
+        n_bytes = len(bytes)
+        if 256 <= n_bytes:
+            raise f'too long token: {token}'
+        token_lengths.append(n_bytes)
         token_bytes.append(bytes)
-    token_lengths = np.array(token_lengths, dtype=np.int32)
+    token_lengths = np.array(token_lengths, dtype=np.uint8)
     token_bytes = np.frombuffer(b''.join(token_bytes), dtype=np.int8)
 
-    w.add_tensor(K['BERTS_KEY_ALL_VOCAB_SIZE'], token_lengths, raw_dtype=GGML_TYPE_I32)
+    w.add_tensor(K['BERTS_KEY_ALL_VOCAB_SIZE'], token_lengths, raw_dtype=GGML_TYPE_I8)
     w.add_tensor(K['BERTS_KEY_ALL_VOCAB_DATA'], token_bytes, raw_dtype=GGML_TYPE_I8)
 
     print(f'''

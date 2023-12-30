@@ -171,7 +171,7 @@ bool model::load_vocab(berts_context *ctx) {
         return false;
     }
 
-    if (vocab_size->type != GGML_TYPE_I32) {
+    if (vocab_size->type != GGML_TYPE_I8) {
         log::error("invalid type of vocab_size: {}", (int)vocab_size->type);
         return false;
     }
@@ -184,7 +184,7 @@ bool model::load_vocab(berts_context *ctx) {
     log::debug("  vocab count: {}", vocab_size->ne[0]);
 
     const int64_t vocab_count = vocab_size->ne[0];
-    auto token_lengths = static_cast<const int32_t *>(vocab_size->data);
+    auto token_lengths = static_cast<const uint8_t *>(vocab_size->data);
     const auto data = static_cast<const char *>(vocab_data->data);
     ptrdiff_t p = 0;
     for (int64_t token_id = 0; token_id < vocab_count; ++token_id) {
