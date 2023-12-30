@@ -98,6 +98,74 @@ BERTS_API berts_context *berts_load_from_file(const char *path);
 // BERTS_API berts_context *berts_load_from_memory(const uint8_t *data, size_t data_len);
 
 //
+// tokenizer
+//
+
+struct berts_tokenizer_info {
+    // ignored, always normalized with NFC
+    bool normalize;
+
+    // remove U+FFFD
+    bool remove_replacement_char;
+
+    // remove U+0000
+    bool remove_null_char;
+
+    // remove control chars (category C*)
+    bool remove_control_char;
+
+    // convert all whitespaces to a normal space (U+0020)
+    bool normalize_whitespaces;
+
+    // add space around all CJK characters
+    bool add_space_around_cjk_char;
+
+    // force input to be lowercase letters
+    bool do_lower_case;
+
+    // remove all accent chars
+    bool strip_accents;
+
+    // split words at a punctuation
+    bool split_on_punc;
+
+    //// [UNK] token id
+    // bert_token_t unknown_token_id;
+};
+
+BERTS_API void berts_init_tokenizer_info(berts_tokenizer_info *cond);
+
+BERTS_API void berts_init_tokenizer_info_no_basic(berts_tokenizer_info *cond);
+
+BERTS_API void berts_get_tokenizer_info(const berts_context *ctx, berts_tokenizer_info *cond);
+
+BERTS_API void berts_set_tokenizer_info(berts_context *ctx, const berts_tokenizer_info *cond);
+
+BERTS_API bert_token_t berts_cls_id(const berts_context *ctx);
+
+BERTS_API bert_token_t berts_mask_id(const berts_context *ctx);
+
+BERTS_API bert_token_t berts_pad_id(const berts_context *ctx);
+
+BERTS_API bert_token_t berts_sep_id(const berts_context *ctx);
+
+BERTS_API bert_token_t berts_unk_id(const berts_context *ctx);
+
+BERTS_API bool berts_id_to_token(const berts_context *ctx,
+                                 bert_token_t id,
+                                 char *out,
+                                 size_t *out_len);
+
+BERTS_API bert_token_t berts_token_to_id(const berts_context *ctx,
+                                         const char *token // null-terminated
+);
+
+BERTS_API bool berts_tokenize(const berts_context *ctx,
+                              const char *text,
+                              bert_token_t *out,
+                              size_t *out_len);
+
+//
 // inference
 //
 

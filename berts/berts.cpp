@@ -60,6 +60,84 @@ berts_context *berts_load_from_file(const char *path) {
 //     return gguf::load_from_memory(const uint8_t *data, size_t data_len);
 // }
 
+//
+// tokenizer
+//
+
+void berts_init_tokenizer_info(berts_tokenizer_info *cond) {
+    if (cond) internal::init_tokenizer_info_default(*cond);
+}
+
+void berts_init_tokenizer_info_no_basic(berts_tokenizer_info *cond) {
+    if (cond) internal::init_tokenizer_info_no_basic(*cond);
+}
+
+void berts_get_tokenizer_info(const berts_context *ctx, berts_tokenizer_info *cond) {
+    if (cond) internal::get_tokenizer_info(ctx, *cond);
+}
+
+void berts_set_tokenizer_info(berts_context *ctx, const berts_tokenizer_info *cond) {
+    if (cond) internal::set_tokenizer_info(ctx, *cond);
+}
+
+bert_token_t berts_cls_id(const berts_context *ctx) {
+    return internal::get_cls_id(ctx);
+}
+
+bert_token_t berts_mask_id(const berts_context *ctx) {
+    return internal::get_mask_id(ctx);
+}
+
+bert_token_t berts_pad_id(const berts_context *ctx) {
+    return internal::get_pad_id(ctx);
+}
+
+bert_token_t berts_sep_id(const berts_context *ctx) {
+    return internal::get_sep_id(ctx);
+}
+
+bert_token_t berts_unk_id(const berts_context *ctx) {
+    return internal::get_unk_id(ctx);
+}
+
+bool berts_id_to_token(const berts_context *ctx,
+                       bert_token_t id,
+                       char *out,
+                       size_t *out_len) {
+    const auto token = internal::id_to_token(ctx, id);
+    if (out_len) {
+        size_t out_len_ = std::min(*out_len, token.size());
+        *out_len = token.size();
+        if (out) std::copy(token.begin(), token.begin() + out_len_, out);
+    }
+    return token.size() != 0;
+}
+
+bert_token_t berts_token_to_id(const berts_context *ctx, const char *token) {
+    return internal::token_to_id(ctx, token);
+}
+
+bool berts_tokenize(const berts_context *ctx,
+                    const char *text,
+                    bert_token_t *out,
+                    size_t *out_len) {
+    std::vector<bert_token_t> ids;
+    ids.reserve(std::strlen(text));
+    bool ok = internal::tokenize(ctx, text, ids);
+    if (ok) {
+        if (out_len) {
+            size_t out_len_ = std::min(*out_len, ids.size());
+            *out_len = ids.size();
+            if (out) std::copy(ids.begin(), ids.begin() + out_len_, out);
+        }
+    }
+    return ok;
+}
+
+//
+// inference
+//
+
 ggml_tensor *berts_eval(berts_context *ctx,
                         const bert_token_t *tokens,
                         const bert_segment_t *segments,

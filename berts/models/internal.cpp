@@ -6,7 +6,12 @@
 
 using namespace berts;
 
+//
+// models
+//
+
 struct vocab {
+    berts_tokenizer_info cond;
     std::vector<std::string> id_to_token;
     std::unordered_map<std::string, bert_token_t> token_to_id;
     vocab() {}
@@ -80,6 +85,38 @@ bool get_hparams(const berts_context *ctx, hparams *params) {
     return true;
 }
 
+bool is_model_loaded(const berts_context *ctx) {
+    return ctx && ctx->model;
+}
+
+ggml_tensor *eval(const berts_context *ctx,
+                  const std::vector<bert_token_t> &tokens) {
+    if (!check_ctx(ctx)) {
+        return nullptr;
+    }
+
+    return ctx->model->eval(ctx, tokens);
+}
+
+ggml_tensor *eval(const berts_context *ctx,
+                  const std::vector<bert_token_t> &tokens,
+                  const std::vector<bert_segment_t> &segments) {
+    if (!check_ctx(ctx)) {
+        return nullptr;
+    }
+
+    return ctx->model->eval(ctx, tokens, segments);
+}
+
+ggml_tensor *model::eval(const berts_context *ctx, const std::vector<bert_token_t> &tokens) const {
+    std::vector<bert_segment_t> segments(tokens.size());
+    return this->eval(ctx, tokens, segments);
+}
+
+//
+// tokenizers
+//
+
 std::string id_to_token(const berts_context *ctx, bert_token_t token_id) {
     if (!check_ctx(ctx)) {
         return "";
@@ -133,32 +170,85 @@ bool has_token(const berts_context *ctx, const std::string &token) {
     return p != ctx->vocab.token_to_id.end();
 }
 
-bool is_model_loaded(const berts_context *ctx) {
-    return ctx && ctx->model;
-}
-
-ggml_tensor *eval(const berts_context *ctx,
-                  const std::vector<bert_token_t> &tokens) {
+void get_tokenizer_info(const berts_context *ctx, berts_tokenizer_info &cond) {
     if (!check_ctx(ctx)) {
-        return nullptr;
+        return;
     }
 
-    return ctx->model->eval(ctx, tokens);
+    cond = ctx->vocab.cond;
 }
 
-ggml_tensor *eval(const berts_context *ctx,
-                  const std::vector<bert_token_t> &tokens,
-                  const std::vector<bert_segment_t> &segments) {
+void set_tokenizer_info(berts_context *ctx, const berts_tokenizer_info &cond) {
     if (!check_ctx(ctx)) {
-        return nullptr;
+        return;
     }
 
-    return ctx->model->eval(ctx, tokens, segments);
+    ctx->vocab.cond = cond;
 }
 
-ggml_tensor *model::eval(const berts_context *ctx, const std::vector<bert_token_t> &tokens) const {
-    std::vector<bert_segment_t> segments(tokens.size());
-    return this->eval(ctx, tokens, segments);
+void init_tokenizer_info_default(berts_tokenizer_info &cond) {
+    cond.normalize = true;
+    cond.remove_replacement_char = true;
+    cond.remove_null_char = true;
+    cond.remove_control_char = true;
+    cond.normalize_whitespaces = true;
+    cond.add_space_around_cjk_char = true;
+    cond.do_lower_case = true;
+    cond.strip_accents = true;
+    cond.split_on_punc = true;
+    //cond.unknown_token_id = unknown_token_id;
+}
+
+void init_tokenizer_info_no_basic(berts_tokenizer_info &cond) {
+    cond.normalize = true;
+    cond.remove_replacement_char = false;
+    cond.remove_null_char = false;
+    cond.remove_control_char = false;
+    cond.normalize_whitespaces = true;
+    cond.add_space_around_cjk_char = false;
+    cond.do_lower_case = false;
+    cond.strip_accents = false;
+    cond.split_on_punc = false;
+    //cond.unknown_token_id = unknown_token_id;
+}
+
+bert_token_t get_cls_id(const berts_context *ctx) {
+    if (check_ctx(ctx)) {
+        return BERTS_INVALID_TOKEN_ID;
+    }
+    return BERTS_INVALID_TOKEN_ID;
+}
+
+bert_token_t get_mask_id(const berts_context *ctx) {
+    if (check_ctx(ctx)) {
+        return BERTS_INVALID_TOKEN_ID;
+    }
+    return BERTS_INVALID_TOKEN_ID;
+}
+
+bert_token_t get_pad_id(const berts_context *ctx) {
+    if (check_ctx(ctx)) {
+        return BERTS_INVALID_TOKEN_ID;
+    }
+    return BERTS_INVALID_TOKEN_ID;
+}
+
+bert_token_t get_sep_id(const berts_context *ctx) {
+    if (check_ctx(ctx)) {
+        return BERTS_INVALID_TOKEN_ID;
+    }
+    return BERTS_INVALID_TOKEN_ID;
+}
+
+bert_token_t get_unk_id(const berts_context *ctx) {
+    if (check_ctx(ctx)) {
+        return BERTS_INVALID_TOKEN_ID;
+    }
+    return BERTS_INVALID_TOKEN_ID;
+}
+
+bool tokenize(const berts_context *ctx, const std::string &text, std::vector<bert_token_t> &out) {
+    return false;
 }
 
 } // namespace berts::internal

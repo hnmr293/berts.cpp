@@ -7,11 +7,13 @@
 
 int main() {
 
-    berts_set_log_level(BERTS_LOG_ALL);
+    berts_set_log_level(BERTS_LOG_WARN);
     const char *model_path = ".gguf/bert-base-cased_q8.gguf";
     auto ctx = berts_load_from_file(model_path);
     assert(ctx);
 
+    berts_set_log_level(BERTS_LOG_ALL);
+    
     //
     // tokens
     //

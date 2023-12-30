@@ -8,6 +8,10 @@
 
 namespace berts::internal {
 
+//
+// models
+//
+
 struct hparams {
     bert_type architecture;
     bert_int vocab_size;
@@ -51,14 +55,6 @@ ggml_context *get_ggml_context(berts_context *ctx);
 
 bool get_hparams(const berts_context *ctx, hparams *params);
 
-std::string id_to_token(const berts_context *ctx, bert_token_t token_id);
-
-bert_token_t token_to_id(const berts_context *ctx, const std::string &token);
-
-bool add_token(berts_context *ctx, const std::string &token);
-
-bool has_token(const berts_context *ctx, const std::string &token);
-
 bool is_model_loaded(const berts_context *ctx);
 
 ggml_tensor *eval(const berts_context *ctx,
@@ -67,6 +63,38 @@ ggml_tensor *eval(const berts_context *ctx,
 ggml_tensor *eval(const berts_context *ctx,
                   const std::vector<bert_token_t> &tokens,
                   const std::vector<bert_segment_t> &segments);
+
+//
+// tokenizers
+//
+
+std::string id_to_token(const berts_context *ctx, bert_token_t token_id);
+
+bert_token_t token_to_id(const berts_context *ctx, const std::string &token);
+
+bool add_token(berts_context *ctx, const std::string &token);
+
+bool has_token(const berts_context *ctx, const std::string &token);
+
+void get_tokenizer_info(const berts_context *ctx, berts_tokenizer_info &cond);
+
+void set_tokenizer_info(berts_context *ctx, const berts_tokenizer_info &cond);
+
+void init_tokenizer_info_default(berts_tokenizer_info &cond);
+
+void init_tokenizer_info_no_basic(berts_tokenizer_info &cond);
+
+bert_token_t get_cls_id(const berts_context *ctx);
+
+bert_token_t get_mask_id(const berts_context *ctx);
+
+bert_token_t get_pad_id(const berts_context *ctx);
+
+bert_token_t get_sep_id(const berts_context *ctx);
+
+bert_token_t get_unk_id(const berts_context *ctx);
+
+bool tokenize(const berts_context *ctx, const std::string &text, std::vector<bert_token_t> &out);
 
 //
 // utilities
