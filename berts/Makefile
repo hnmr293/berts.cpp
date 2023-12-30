@@ -44,7 +44,8 @@ EXAMPLES = \
 TESTS = \
 	test_tokenizer \
 	test_unicode \
-	test_trie
+	test_trie \
+	test_eval
 
 BUILD_TARGET += $(addsuffix $(EXE_EXT),$(EXAMPLES))
 BUILD_TARGET += $(addsuffix _d$(EXE_EXT),$(EXAMPLES))
@@ -216,4 +217,10 @@ test_trie$(EXE_EXT):        tests/test_trie.cpp $(COMMON_HEADERS) $(STATIC_LIB)
 	$(CXX) $(CXXFLAGS) $(filter-out %.h %.hpp,$^) $(STAITC_LIB_GGML)   -o $@ $(LDFLAGS)
 
 test_trie_d$(EXE_EXT):      tests/test_trie.cpp $(COMMON_HEADERS) $(STATIC_LIB)
+	$(CXX) $(CXXFLAGS) $(filter-out %.h %.hpp,$^) $(STAITC_LIB_GGML_D) -o $@ $(LDFLAGS)
+
+test_eval$(EXE_EXT):        tests/test_eval.cpp $(COMMON_HEADERS) $(STATIC_LIB)
+	$(CXX) $(CXXFLAGS) $(filter-out %.h %.hpp,$^) $(STAITC_LIB_GGML)   -o $@ $(LDFLAGS)
+
+test_eval_d$(EXE_EXT):      tests/test_eval.cpp $(COMMON_HEADERS) $(STATIC_LIB)
 	$(CXX) $(CXXFLAGS) $(filter-out %.h %.hpp,$^) $(STAITC_LIB_GGML_D) -o $@ $(LDFLAGS)
