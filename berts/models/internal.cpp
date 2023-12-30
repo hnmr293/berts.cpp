@@ -148,7 +148,7 @@ bool is_model_loaded(const berts_context *ctx) {
     return ctx && ctx->model;
 }
 
-ggml_tensor *eval(const berts_context *ctx,
+ggml_tensor *eval(berts_context *ctx,
                   const std::vector<bert_token_t> &tokens) {
     if (!check_ctx(ctx)) {
         return nullptr;
@@ -157,7 +157,7 @@ ggml_tensor *eval(const berts_context *ctx,
     return ctx->model->eval(ctx, tokens);
 }
 
-ggml_tensor *eval(const berts_context *ctx,
+ggml_tensor *eval(berts_context *ctx,
                   const std::vector<bert_token_t> &tokens,
                   const std::vector<bert_segment_t> &segments) {
     if (!check_ctx(ctx)) {
@@ -167,7 +167,7 @@ ggml_tensor *eval(const berts_context *ctx,
     return ctx->model->eval(ctx, tokens, segments);
 }
 
-ggml_tensor *model::eval(const berts_context *ctx, const std::vector<bert_token_t> &tokens) const {
+ggml_tensor *model::eval(berts_context *ctx, const std::vector<bert_token_t> &tokens) const {
     std::vector<bert_segment_t> segments(tokens.size());
     return this->eval(ctx, tokens, segments);
 }
