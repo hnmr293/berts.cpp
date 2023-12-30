@@ -1,8 +1,23 @@
 #include <cassert>
+#include <memory>
 #include "berts/models/trie.hpp"
 
 using namespace berts::trie;
 using namespace berts::unicode;
+
+static int check_trie_free = 1;
+
+namespace std {
+template <>
+struct default_delete<trie> {
+    void operator()(trie *trie) {
+        if (trie) free_trie(trie);
+        check_trie_free = 2;
+    }
+};
+} // namespace std
+
+using trie_t = std::unique_ptr<trie>;
 
 int main() {
     std::vector<std::string> vocab{{
@@ -95,6 +110,12 @@ int main() {
         assert(found == "d");
         assert(rest == "");
     }
+
+    assert(check_trie_free == 1);
+    {
+        trie_t t{build_trie(vocab)};
+    }
+    assert(check_trie_free == 2);
 
     return 0;
 }
