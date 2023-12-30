@@ -41,8 +41,14 @@ BUILD_TARGET = \
 EXAMPLES = \
 	quant
 
+TESTS = \
+	test_tokenizer
+
 BUILD_TARGET += $(addsuffix $(EXE_EXT),$(EXAMPLES))
 BUILD_TARGET += $(addsuffix _d$(EXE_EXT),$(EXAMPLES))
+
+BUILD_TARGET += $(addsuffix $(EXE_EXT),$(TESTS))
+BUILD_TARGET += $(addsuffix _d$(EXE_EXT),$(TESTS))
 
 default: $(BUILD_TARGET)
 
@@ -167,4 +173,14 @@ quant$(EXE_EXT):   examples/quant.cpp $(COMMON_HEADERS) $(STATIC_LIB)
 	$(CXX) $(CXXFLAGS) $(filter-out %.h %.hpp,$^) $(STAITC_LIB_GGML)   -o $@ $(LDFLAGS)
 
 quant_d$(EXE_EXT): examples/quant.cpp $(COMMON_HEADERS) $(STATIC_LIB)
+	$(CXX) $(CXXFLAGS) $(filter-out %.h %.hpp,$^) $(STAITC_LIB_GGML_D) -o $@ $(LDFLAGS)
+
+#
+# tests
+#
+
+test_tokenizer$(EXE_EXT):   tests/test_tokenizer.cpp $(COMMON_HEADERS) $(STATIC_LIB)
+	$(CXX) $(CXXFLAGS) $(filter-out %.h %.hpp,$^) $(STAITC_LIB_GGML)   -o $@ $(LDFLAGS)
+
+test_tokenizer_d$(EXE_EXT): tests/test_tokenizer.cpp $(COMMON_HEADERS) $(STATIC_LIB)
 	$(CXX) $(CXXFLAGS) $(filter-out %.h %.hpp,$^) $(STAITC_LIB_GGML_D) -o $@ $(LDFLAGS)
