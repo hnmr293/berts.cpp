@@ -131,9 +131,14 @@ def convert(repo_id: str, cache_dir: str|None, output_path: str):
         w.add_bool(K['BERTS_KEY_TOKENIZER_DO_LOWER_CASE'], tokenizer.do_lower_case)
     if tokenizer.do_basic_tokenize:
         w.add_bool(K['BERTS_KEY_TOKENIZER_DO_BASIC_TOKENIZE'], tokenizer.do_basic_tokenize)
-    # never split ???
     if hasattr(tokenizer, 'basic_tokenizer') and tokenizer.basic_tokenizer.tokenize_chinese_chars is not None:
-        w.add_bool(K['BERTS_KEY_TOKENIZER_NEVER_SPLIT'], tokenizer.basic_tokenizer.tokenize_chinese_chars)
+        w.add_bool(K['BERTS_KEY_TOKENIZER_CHINESE_CHARS'], tokenizer.basic_tokenizer.tokenize_chinese_chars)
+    # never split ???
+    if hasattr(tokenizer, 'basic_tokenizer') and tokenizer.basic_tokenizer.never_split is not None:
+        never_split = tokenizer.basic_tokenizer.never_split
+        if len(never_split) != 0:
+            raise RuntimeError(f'never_split: {tokenizer.basic_tokenizer.never_split}')
+            w.add_bool(K['BERTS_KEY_TOKENIZER_NEVER_SPLIT'], tokenizer.basic_tokenizer.never_split)
     if hasattr(tokenizer, 'basic_tokenizer') and tokenizer.basic_tokenizer.strip_accents is not None:
         w.add_bool(K['BERTS_KEY_TOKENIZER_STRIP_ACCENT'], tokenizer.basic_tokenizer.strip_accents)
     
