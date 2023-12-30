@@ -185,9 +185,9 @@ bool model::load_vocab(berts_context *ctx) {
     return true;
 }
 
-ggml_tensor *model::eval(berts_context *ctx,
+ggml_tensor *model::eval(const berts_context *ctx,
                          const std::vector<bert_token_t> &tokens,
-                         const std::vector<bert_segment_t> &segments) {
+                         const std::vector<bert_segment_t> &segments) const {
     static_assert(sizeof(bert_token_t) == sizeof(int32_t));
     static_assert(sizeof(bert_segment_t) == sizeof(int32_t));
 

@@ -68,7 +68,7 @@ ggml_context *get_ggml_context(berts_context *ctx) {
     return ctx->ctx;
 }
 
-bool get_hparams(berts_context *ctx, hparams *params) {
+bool get_hparams(const berts_context *ctx, hparams *params) {
     if (!check_ctx(ctx)) {
         return false;
     }
@@ -80,7 +80,7 @@ bool get_hparams(berts_context *ctx, hparams *params) {
     return true;
 }
 
-std::string id_to_token(berts_context *ctx, bert_token_t token_id) {
+std::string id_to_token(const berts_context *ctx, bert_token_t token_id) {
     if (!check_ctx(ctx)) {
         return "";
     }
@@ -93,7 +93,7 @@ std::string id_to_token(berts_context *ctx, bert_token_t token_id) {
     return ctx->vocab.id_to_token[token_id];
 }
 
-bert_token_t token_to_id(berts_context *ctx, const std::string &token) {
+bert_token_t token_to_id(const berts_context *ctx, const std::string &token) {
     if (!check_ctx(ctx)) {
         return BERTS_INVALID_TOKEN_ID;
     }
@@ -124,7 +124,7 @@ bool add_token(berts_context *ctx, const std::string &token) {
     return true;
 }
 
-bool has_token(berts_context *ctx, const std::string &token) {
+bool has_token(const berts_context *ctx, const std::string &token) {
     if (!check_ctx(ctx)) {
         return false;
     }
@@ -133,11 +133,11 @@ bool has_token(berts_context *ctx, const std::string &token) {
     return p != ctx->vocab.token_to_id.end();
 }
 
-bool is_model_loaded(berts_context *ctx) {
+bool is_model_loaded(const berts_context *ctx) {
     return ctx && ctx->model;
 }
 
-ggml_tensor *eval(berts_context *ctx,
+ggml_tensor *eval(const berts_context *ctx,
                   const std::vector<bert_token_t> &tokens) {
     if (!check_ctx(ctx)) {
         return nullptr;
@@ -146,7 +146,7 @@ ggml_tensor *eval(berts_context *ctx,
     return ctx->model->eval(ctx, tokens);
 }
 
-ggml_tensor *eval(berts_context *ctx,
+ggml_tensor *eval(const berts_context *ctx,
                   const std::vector<bert_token_t> &tokens,
                   const std::vector<bert_segment_t> &segments) {
     if (!check_ctx(ctx)) {
@@ -156,7 +156,7 @@ ggml_tensor *eval(berts_context *ctx,
     return ctx->model->eval(ctx, tokens, segments);
 }
 
-ggml_tensor *model::eval(berts_context *ctx, const std::vector<bert_token_t> &tokens) {
+ggml_tensor *model::eval(const berts_context *ctx, const std::vector<bert_token_t> &tokens) const {
     std::vector<bert_segment_t> segments(tokens.size());
     return this->eval(ctx, tokens, segments);
 }

@@ -30,9 +30,9 @@ struct model {
 
     virtual bool load_vocab(berts_context *ctx) = 0;
 
-    ggml_tensor *eval(berts_context *ctx, const std::vector<bert_token_t> &tokens);
+    ggml_tensor *eval(const berts_context *ctx, const std::vector<bert_token_t> &tokens) const;
 
-    virtual ggml_tensor *eval(berts_context *ctx, const std::vector<bert_token_t> &tokens, const std::vector<bert_segment_t> &segments) = 0;
+    virtual ggml_tensor *eval(const berts_context *ctx, const std::vector<bert_token_t> &tokens, const std::vector<bert_segment_t> &segments) const = 0;
 };
 
 /// @brief create new `berts_context`
@@ -49,22 +49,22 @@ gguf_context *get_gguf_context(berts_context *ctx);
 
 ggml_context *get_ggml_context(berts_context *ctx);
 
-bool get_hparams(berts_context *ctx, hparams *params);
+bool get_hparams(const berts_context *ctx, hparams *params);
 
-std::string id_to_token(berts_context *ctx, bert_token_t token_id);
+std::string id_to_token(const berts_context *ctx, bert_token_t token_id);
 
-bert_token_t token_to_id(berts_context *ctx, const std::string &token);
+bert_token_t token_to_id(const berts_context *ctx, const std::string &token);
 
 bool add_token(berts_context *ctx, const std::string &token);
 
-bool has_token(berts_context *ctx, const std::string &token);
+bool has_token(const berts_context *ctx, const std::string &token);
 
-bool is_model_loaded(berts_context *ctx);
+bool is_model_loaded(const berts_context *ctx);
 
-ggml_tensor *eval(berts_context *ctx,
+ggml_tensor *eval(const berts_context *ctx,
                   const std::vector<bert_token_t> &tokens);
 
-ggml_tensor *eval(berts_context *ctx,
+ggml_tensor *eval(const berts_context *ctx,
                   const std::vector<bert_token_t> &tokens,
                   const std::vector<bert_segment_t> &segments);
 
@@ -72,7 +72,7 @@ ggml_tensor *eval(berts_context *ctx,
 // utilities
 //
 
-inline bool check_ctx(berts_context *ctx) {
+inline bool check_ctx(const berts_context *ctx) {
     if (!ctx) {
         log::warn("ctx=nullptr");
         return false;
@@ -81,7 +81,7 @@ inline bool check_ctx(berts_context *ctx) {
     }
 }
 
-inline bool check_model(berts_context *ctx) {
+inline bool check_model(const berts_context *ctx) {
     if (!check_ctx(ctx)) {
         return false;
     }
