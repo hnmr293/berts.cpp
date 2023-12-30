@@ -128,9 +128,6 @@ struct berts_tokenizer_info {
 
     // split words at a punctuation
     bool split_on_punc;
-
-    //// [UNK] token id
-    // bert_token_t unknown_token_id;
 };
 
 BERTS_API void berts_init_tokenizer_info(berts_tokenizer_info *cond);

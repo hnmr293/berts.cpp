@@ -86,13 +86,23 @@ void init_tokenizer_info_no_basic(berts_tokenizer_info &cond);
 
 bert_token_t get_cls_id(const berts_context *ctx);
 
+void set_cls_id(berts_context *ctx, bert_token_t id);
+
 bert_token_t get_mask_id(const berts_context *ctx);
+
+void set_mask_id(berts_context *ctx, bert_token_t id);
 
 bert_token_t get_pad_id(const berts_context *ctx);
 
+void set_pad_id(berts_context *ctx, bert_token_t id);
+
 bert_token_t get_sep_id(const berts_context *ctx);
 
+void set_sep_id(berts_context *ctx, bert_token_t id);
+
 bert_token_t get_unk_id(const berts_context *ctx);
+
+void set_unk_id(berts_context *ctx, bert_token_t id);
 
 bool tokenize(const berts_context *ctx, const std::string &text, std::vector<bert_token_t> &out);
 

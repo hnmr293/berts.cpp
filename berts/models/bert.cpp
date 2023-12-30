@@ -5,6 +5,7 @@
 #include <cmath>
 #include <cstring>
 #include <ranges>
+#include "berts/models/gguf.hpp"
 #include "berts/models/keys.h"
 #include "berts/models/utils.hpp"
 
@@ -130,12 +131,27 @@ bool model::init_weight(berts_context *ctx) {
     return true;
 }
 
+static inline bert_token_t get_special_token_id(const berts_context *ctx, const gguf_context *gguf, const char *key, const char *alternate) {
+    auto id = gguf::gguf_u32(gguf, key, BERTS_INVALID_TOKEN_ID);
+    if (id == BERTS_INVALID_TOKEN_ID) {
+        log::warn("{} is not defined; use {} instead", key, alternate);
+        id = internal::token_to_id(ctx, alternate);
+        if (id == BERTS_INVALID_TOKEN_ID) {
+            log::error("{} does not exist in vocab", alternate);
+        }
+    }
+    return id;
+}
+
 bool model::load_vocab(berts_context *ctx) {
+    log::info("loading vocab");
+
     if (!check_ctx(ctx)) {
         return false;
     }
 
     auto ggml = get_ggml_context(ctx);
+    auto gguf = get_gguf_context(ctx);
 
     auto vocab_size = ggml_get_tensor(ggml, BERTS_KEY_ALL_VOCAB_SIZE);
     auto vocab_data = ggml_get_tensor(ggml, BERTS_KEY_ALL_VOCAB_DATA);
@@ -165,6 +181,8 @@ bool model::load_vocab(berts_context *ctx) {
         return false;
     }
 
+    log::debug("  vocab count: {}", vocab_size->ne[0]);
+
     const int64_t vocab_count = vocab_size->ne[0];
     auto token_lengths = static_cast<const int32_t *>(vocab_size->data);
     const auto data = static_cast<const char *>(vocab_data->data);
@@ -181,6 +199,101 @@ bool model::load_vocab(berts_context *ctx) {
         log::error("something wrong");
         return false;
     }
+
+    auto cls_id = get_special_token_id(ctx, gguf, BERTS_KEY_TOKENIZER_CLS_ID, "[CLS]");
+    auto mask_id = get_special_token_id(ctx, gguf, BERTS_KEY_TOKENIZER_MASK_ID, "[MASK]");
+    auto pad_id = get_special_token_id(ctx, gguf, BERTS_KEY_TOKENIZER_PAD_ID, "[PAD]");
+    auto sep_id = get_special_token_id(ctx, gguf, BERTS_KEY_TOKENIZER_SEP_ID, "[SEP]");
+    auto unk_id = get_special_token_id(ctx, gguf, BERTS_KEY_TOKENIZER_UNK_ID, "[UNK]");
+
+    log::when(BERTS_LOG_INFO, [=]() {
+        auto cls = internal::id_to_token(ctx, cls_id);
+        auto mask = internal::id_to_token(ctx, mask_id);
+        auto pad = internal::id_to_token(ctx, pad_id);
+        auto sep = internal::id_to_token(ctx, sep_id);
+        auto unk = internal::id_to_token(ctx, unk_id);
+        log::info("  cls_id:  {} ({})", cls_id, cls);
+        log::info("  mask_id: {} ({})", mask_id, mask);
+        log::info("  pad_id:  {} ({})", pad_id, pad);
+        log::info("  sep_id:  {} ({})", sep_id, sep);
+        log::info("  unk_id:  {} ({})", unk_id, unk);
+    });
+
+    if (cls_id == BERTS_INVALID_TOKEN_ID ||
+        mask_id == BERTS_INVALID_TOKEN_ID ||
+        pad_id == BERTS_INVALID_TOKEN_ID ||
+        sep_id == BERTS_INVALID_TOKEN_ID ||
+        unk_id == BERTS_INVALID_TOKEN_ID) {
+        return false;
+    }
+
+    internal::set_cls_id(ctx, cls_id);
+    internal::set_mask_id(ctx, mask_id);
+    internal::set_pad_id(ctx, pad_id);
+    internal::set_sep_id(ctx, sep_id);
+    internal::set_unk_id(ctx, unk_id);
+
+    auto do_lower_case = gguf::gguf_bool(gguf, BERTS_KEY_TOKENIZER_DO_LOWER_CASE, true);
+    auto do_basic_tokenize = gguf::gguf_bool(gguf, BERTS_KEY_TOKENIZER_DO_BASIC_TOKENIZE, true);
+    // BERTS_KEY_TOKENIZER_NEVER_SPLIT
+    auto tokenize_chinese_chars = gguf::gguf_bool(gguf, BERTS_KEY_TOKENIZER_CHINESE_CHARS, true);
+    auto strip_accent = gguf::gguf_bool(gguf, BERTS_KEY_TOKENIZER_STRIP_ACCENT, do_lower_case);
+
+    /**
+    skip props
+    {
+        // ignored, always normalized with NFC
+        bool normalize;
+        // remove U+FFFD
+        bool remove_replacement_char;
+        // remove U+0000
+        bool remove_null_char;
+        // remove control chars (category C*)
+        bool remove_control_char;
+        // convert all whitespaces to a normal space (U+0020)
+        bool normalize_whitespaces;
+        // split words at a punctuation
+        bool split_on_punc;
+    }
+    */
+
+    berts_tokenizer_info cond{};
+    if (do_basic_tokenize) {
+        internal::init_tokenizer_info_default(cond);
+    } else {
+        internal::init_tokenizer_info_no_basic(cond);
+    }
+
+    cond.do_lower_case = do_lower_case;
+    cond.add_space_around_cjk_char = tokenize_chinese_chars;
+    cond.strip_accents = strip_accent;
+
+    log::when(BERTS_LOG_INFO, [&cond, do_basic_tokenize]() {
+        log::info("  do_basic_tokenize = {}", do_basic_tokenize);
+        log::info(
+            "  berts_tokenizer_info {{\n"
+            "    bool normalize = {:<5s};                 // ignored, always normalized with NFC\n"
+            "    bool remove_replacement_char = {:<5s};   // remove U+FFFD\n"
+            "    bool remove_null_char = {:<5s};          // remove U+0000\n"
+            "    bool remove_control_char = {:<5s};       // remove control chars (category C*)\n"
+            "    bool normalize_whitespaces = {:<5s};     // convert all whitespaces to a normal space (U+0020)\n"
+            "    bool add_space_around_cjk_char = {:<5s}; // add space around all CJK characters\n"
+            "    bool do_lower_case = {:<5s};             // force input to be lowercase letters\n"
+            "    bool strip_accents = {:<5s};             // remove all accent chars\n"
+            "    bool split_on_punc = {:<5s};             // split words at a punctuation\n"
+            "  }}",
+            cond.normalize,
+            cond.remove_replacement_char,
+            cond.remove_null_char,
+            cond.remove_control_char,
+            cond.normalize_whitespaces,
+            cond.add_space_around_cjk_char,
+            cond.do_lower_case,
+            cond.strip_accents,
+            cond.split_on_punc);
+    });
+
+    internal::set_tokenizer_info(ctx, cond);
 
     return true;
 }

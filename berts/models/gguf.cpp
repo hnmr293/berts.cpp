@@ -17,50 +17,6 @@ namespace berts::gguf {
 // getter
 //
 
-static inline size_t safe_index(const struct gguf_context *ctx, const std::string &key) {
-    auto idx = gguf_find_key(ctx, key.c_str());
-    if (idx < 0) {
-        log::error("key {0} is not found in gguf", key);
-        GGML_ASSERT(false && "key is not found in gguf");
-    }
-
-    return (size_t)idx;
-}
-
-static inline int index(const struct gguf_context *ctx, const std::string &key) {
-    return gguf_find_key(ctx, key.c_str());
-}
-
-#define DEFINE_GGUF_VALUE_GET(gguf_type, c_type)                                                    \
-    static inline c_type gguf_##gguf_type(const struct gguf_context *ctx, const std::string &key) { \
-        return gguf_get_val_##gguf_type(ctx, safe_index(ctx, key));                                 \
-    }
-
-#define DEFINE_GGUF_VALUE_GET_OR(gguf_type, c_type)                                                                    \
-    template <typename T>                                                                                              \
-    static inline c_type gguf_##gguf_type(const struct gguf_context *ctx, const std::string &key, const T &default_) { \
-        auto idx = index(ctx, key);                                                                                    \
-        return idx < 0 ? default_ : gguf_get_val_##gguf_type(ctx, idx);                                                \
-    }
-
-#define DEFINE_GGUF_VALUE(gguf_type, c_type) \
-    DEFINE_GGUF_VALUE_GET(gguf_type, c_type) \
-    DEFINE_GGUF_VALUE_GET_OR(gguf_type, c_type)
-
-DEFINE_GGUF_VALUE(u8, uint8_t)
-DEFINE_GGUF_VALUE(i8, int8_t)
-DEFINE_GGUF_VALUE(u16, uint16_t)
-DEFINE_GGUF_VALUE(i16, int16_t)
-DEFINE_GGUF_VALUE(u32, uint32_t)
-DEFINE_GGUF_VALUE(i32, int32_t)
-DEFINE_GGUF_VALUE(f32, float)
-DEFINE_GGUF_VALUE(u64, uint64_t)
-DEFINE_GGUF_VALUE(i64, int64_t)
-DEFINE_GGUF_VALUE(f64, double)
-DEFINE_GGUF_VALUE(bool, bool)
-DEFINE_GGUF_VALUE(str, const char *)
-DEFINE_GGUF_VALUE(data, const void *)
-
 static inline std::string ftype(uint32_t ftype) {
     // gguf.md
     static std::array<const char *, 19> ftypes{{

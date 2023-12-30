@@ -1,8 +1,8 @@
 #include "berts/models/internal.hpp"
 #include <cmath>
 #include <memory>
-#include "berts/models/utils.hpp"
 #include "berts/models/log.hpp"
+#include "berts/models/utils.hpp"
 
 using namespace berts;
 
@@ -10,12 +10,26 @@ using namespace berts;
 // models
 //
 
+struct special_tokens {
+    bert_token_t cls;
+    bert_token_t mask;
+    bert_token_t pad;
+    bert_token_t sep;
+    bert_token_t unk;
+};
+
 struct vocab {
     berts_tokenizer_info cond;
+    special_tokens special;
     std::vector<std::string> id_to_token;
     std::unordered_map<std::string, bert_token_t> token_to_id;
     vocab() {}
     vocab(size_t n) {
+        this->special.cls = BERTS_INVALID_TOKEN_ID;
+        this->special.mask = BERTS_INVALID_TOKEN_ID;
+        this->special.pad = BERTS_INVALID_TOKEN_ID;
+        this->special.sep = BERTS_INVALID_TOKEN_ID;
+        this->special.unk = BERTS_INVALID_TOKEN_ID;
         this->id_to_token.reserve(n);
         this->token_to_id.reserve(n);
     }
@@ -196,7 +210,6 @@ void init_tokenizer_info_default(berts_tokenizer_info &cond) {
     cond.do_lower_case = true;
     cond.strip_accents = true;
     cond.split_on_punc = true;
-    //cond.unknown_token_id = unknown_token_id;
 }
 
 void init_tokenizer_info_no_basic(berts_tokenizer_info &cond) {
@@ -209,42 +222,76 @@ void init_tokenizer_info_no_basic(berts_tokenizer_info &cond) {
     cond.do_lower_case = false;
     cond.strip_accents = false;
     cond.split_on_punc = false;
-    //cond.unknown_token_id = unknown_token_id;
 }
 
 bert_token_t get_cls_id(const berts_context *ctx) {
-    if (check_ctx(ctx)) {
+    if (!check_ctx(ctx)) {
         return BERTS_INVALID_TOKEN_ID;
     }
-    return BERTS_INVALID_TOKEN_ID;
+    return ctx->vocab.special.cls;
+}
+
+void set_cls_id(berts_context *ctx, bert_token_t id) {
+    if (!check_ctx(ctx)) {
+        return;
+    }
+    ctx->vocab.special.cls = id;
 }
 
 bert_token_t get_mask_id(const berts_context *ctx) {
-    if (check_ctx(ctx)) {
+    if (!check_ctx(ctx)) {
         return BERTS_INVALID_TOKEN_ID;
     }
-    return BERTS_INVALID_TOKEN_ID;
+    return ctx->vocab.special.mask;
+}
+
+void set_mask_id(berts_context *ctx, bert_token_t id) {
+    if (!check_ctx(ctx)) {
+        return;
+    }
+    ctx->vocab.special.mask = id;
 }
 
 bert_token_t get_pad_id(const berts_context *ctx) {
-    if (check_ctx(ctx)) {
+    if (!check_ctx(ctx)) {
         return BERTS_INVALID_TOKEN_ID;
     }
-    return BERTS_INVALID_TOKEN_ID;
+    return ctx->vocab.special.pad;
+}
+
+void set_pad_id(berts_context *ctx, bert_token_t id) {
+    if (!check_ctx(ctx)) {
+        return;
+    }
+    ctx->vocab.special.pad = id;
 }
 
 bert_token_t get_sep_id(const berts_context *ctx) {
-    if (check_ctx(ctx)) {
+    if (!check_ctx(ctx)) {
         return BERTS_INVALID_TOKEN_ID;
     }
-    return BERTS_INVALID_TOKEN_ID;
+    return ctx->vocab.special.sep;
+}
+
+void set_sep_id(berts_context *ctx, bert_token_t id) {
+    if (!check_ctx(ctx)) {
+        return;
+    }
+    ctx->vocab.special.sep = id;
 }
 
 bert_token_t get_unk_id(const berts_context *ctx) {
-    if (check_ctx(ctx)) {
+    if (!check_ctx(ctx)) {
         return BERTS_INVALID_TOKEN_ID;
     }
-    return BERTS_INVALID_TOKEN_ID;
+    return ctx->vocab.special.unk;
+}
+
+void set_unk_id(berts_context *ctx, bert_token_t id) {
+    if (!check_ctx(ctx)) {
+        return;
+    }
+    ctx->vocab.special.unk = id;
 }
 
 bool tokenize(const berts_context *ctx, const std::string &text, std::vector<bert_token_t> &out) {
