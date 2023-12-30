@@ -1,14 +1,3 @@
-BUILD_TARGET = \
-	$(STATIC_LIB) \
-	$(DYNAMIC_LIB)
-
-EXAMPLES = \
-	quant
-
-BUILD_TARGET += $(EXAMPLES) $(addsuffix _d,$(EXAMPLES))
-
-default: $(BUILD_TARGET)
-
 # detect WIN32 and MinGW
 ifndef UNAME_S
 UNAME_S := $(shell uname -s)
@@ -25,6 +14,37 @@ _MINGW := 1
 # use lib*.a
 WIN_LIB := 0
 endif
+
+#
+# lib prefix and suffix
+#
+ifneq ($(WIN_LIB),1)
+LIB_PRE := lib
+SO_EXT := .a
+DSO_EXT := .so
+else
+LIB_PRE :=
+SO_EXT := .lib
+DSO_EXT := .dll
+endif
+
+ifneq ($(_WIN32),1)
+EXE_EXT := 
+else
+EXE_EXT := .exe
+endif
+
+BUILD_TARGET = \
+	$(STATIC_LIB) \
+	$(DYNAMIC_LIB)
+
+EXAMPLES = \
+	quant
+
+BUILD_TARGET += $(addsuffix $(EXE_EXT),$(EXAMPLES))
+BUILD_TARGET += $(addsuffix _d$(EXE_EXT),$(EXAMPLES))
+
+default: $(BUILD_TARGET)
 
 MK_CPPFLAGS = -I$(shell pwd)/.. -I$(shell pwd)/../ggml/include
 MK_CFLAGS = -std=c11 -fPIC
@@ -68,24 +88,8 @@ MK_CFLAGS += $(WARN_FLAGS) -Wshadow -Wstrict-prototypes -Wpointer-arith \
 MK_CXXFLAGS += $(WARN_FLAGS) -Wmissing-declarations -Wmissing-noreturn
 
 #
-# lib prefix and suffix
+# lib targets
 #
-ifneq ($(WIN_LIB),1)
-LIB_PRE := lib
-endif
-
-ifneq ($(WIN_LIB),1)
-SO_EXT := .a
-else
-SO_EXT := .lib
-endif
-
-ifneq ($(WIN_LIB),1)
-DSO_EXT := .so
-else
-DSO_EXT := .dll
-endif
-
 STATIC_LIB := ../lib/$(LIB_PRE)berts$(SO_EXT)
 DYNAMIC_LIB := ../lib/$(LIB_PRE)berts$(DSO_EXT)
 STAITC_LIB_GGML := ../lib/$(LIB_PRE)ggml$(SO_EXT)
@@ -106,6 +110,9 @@ override CXXFLAGS := $(MK_CPPFLAGS) $(CPPFLAGS) $(MK_CXXFLAGS) $(CXXFLAGS)
 override LDFLAGS  := $(MK_LDFLAGS) $(LDFLAGS)
 
 $(info I berts.cpp build info: )
+$(info I _WIN32:   $(_WIN32))
+$(info I _MINGW:   $(_MINGW))
+$(info I WIN_LIB:  $(WIN_LIB))
 $(info I CFLAGS:   $(CFLAGS))
 $(info I CXXFLAGS: $(CXXFLAGS))
 $(info I LDFLAGS:  $(LDFLAGS))
@@ -156,8 +163,8 @@ $(DYNAMIC_LIB): $(OBJS)
 # examples
 #
 
-quant: examples/quant.cpp   $(COMMON_HEADERS) $(STATIC_LIB)
+quant$(EXE_EXT):   examples/quant.cpp $(COMMON_HEADERS) $(STATIC_LIB)
 	$(CXX) $(CXXFLAGS) $(filter-out %.h %.hpp,$^) $(STAITC_LIB_GGML)   -o $@ $(LDFLAGS)
 
-quant_d: examples/quant.cpp $(COMMON_HEADERS) $(STATIC_LIB)
+quant_d$(EXE_EXT): examples/quant.cpp $(COMMON_HEADERS) $(STATIC_LIB)
 	$(CXX) $(CXXFLAGS) $(filter-out %.h %.hpp,$^) $(STAITC_LIB_GGML_D) -o $@ $(LDFLAGS)
