@@ -20,11 +20,11 @@ int main() {
     auto sep_id = berts_sep_id(ctx);
     auto unk_id = berts_unk_id(ctx);
 
-    assert(cls_id != (bert_token_t)-1);
-    assert(mask_id != (bert_token_t)-1);
-    assert(pad_id != (bert_token_t)-1);
-    assert(sep_id != (bert_token_t)-1);
-    assert(unk_id != (bert_token_t)-1);
+    assert(cls_id != BERTS_INVALID_TOKEN_ID);
+    assert(mask_id != BERTS_INVALID_TOKEN_ID);
+    assert(pad_id != BERTS_INVALID_TOKEN_ID);
+    assert(sep_id != BERTS_INVALID_TOKEN_ID);
+    assert(unk_id != BERTS_INVALID_TOKEN_ID);
 
     auto cls = berts_cls_token(ctx);
     auto mask = berts_mask_token(ctx);

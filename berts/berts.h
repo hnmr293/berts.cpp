@@ -36,6 +36,8 @@ typedef int64_t bert_int;
 typedef uint32_t bert_token_t;
 typedef uint32_t bert_segment_t;
 
+#define BERTS_INVALID_TOKEN_ID (bert_token_t)(-1)
+
 //
 // general
 //

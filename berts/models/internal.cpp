@@ -95,13 +95,13 @@ std::string id_to_token(berts_context *ctx, bert_token_t token_id) {
 
 bert_token_t token_to_id(berts_context *ctx, const std::string &token) {
     if (!check_ctx(ctx)) {
-        return (bert_token_t)-1;
+        return BERTS_INVALID_TOKEN_ID;
     }
 
     const auto p = ctx->vocab.token_to_id.find(token);
     if (p == ctx->vocab.token_to_id.end()) {
         log::error("token {} is not found", token);
-        return (bert_token_t)-1;
+        return BERTS_INVALID_TOKEN_ID;
     }
 
     return p->second;
