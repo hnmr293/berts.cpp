@@ -42,7 +42,9 @@ EXAMPLES = \
 	quant
 
 TESTS = \
-	test_tokenizer
+	test_tokenizer \
+	test_unicode \
+	test_trie
 
 BUILD_TARGET += $(addsuffix $(EXE_EXT),$(EXAMPLES))
 BUILD_TARGET += $(addsuffix _d$(EXE_EXT),$(EXAMPLES))
@@ -59,15 +61,28 @@ MK_CXXFLAGS = -std=c++23 -fPIC
 # avoid w64devkit bug
 MK_CPPFLAGS += -fno-rtti
 
+#
+# external libs
+#
 ifdef BERTS_USE_FMTLIB_FMT
 MK_CPPFLAGS += -DBERTS_USE_FMTLIB_FMT
 MK_LDFLAGS += -lfmt
 ifdef BERTS_FMTLIB_FMT_INCLUDE
-MK_CXXFLAGS += -I$(BERTS_FMTLIB_FMT_INCLUDE)
+MK_CXXFLAGS += -I'$(BERTS_FMTLIB_FMT_INCLUDE)'
 endif
 ifdef BERTS_FMTLIB_FMT_LIB
-MK_LDFLAGS += -L$(BERTS_FMTLIB_FMT_LIB)
+MK_LDFLAGS += -L'$(BERTS_FMTLIB_FMT_LIB)'
 endif
+endif
+
+MK_LDFLAGS += -licu
+
+ifdef BERTS_ICU_INCLUDE
+MK_CPPFLAGS += -I'$(BERTS_ICU_INCLUDE)'
+endif
+
+ifdef BERTS_ICU_LIB
+MK_LDFLAGS += -L'$(BERTS_ICU_LIB)'
 endif
 
 #
@@ -147,6 +162,12 @@ quantize.o: models/quantize.cpp $(COMMON_HEADERS)
 internal.o: models/internal.cpp models/internal.hpp $(COMMON_HEADERS)
 	$(CXX) $(CXXFLAGS) -c $< -o $@
 
+trie.o: models/trie.cpp models/trie.hpp $(COMMON_HEADERS)
+	$(CXX) $(CXXFLAGS) -c $< -o $@
+
+unicode.o: models/unicode.cpp models/unicode.hpp $(COMMON_HEADERS)
+	$(CXX) $(CXXFLAGS) -c $< -o $@
+
 log.o: models/log.cpp models/log.hpp $(COMMON_HEADERS)
 	$(CXX) $(CXXFLAGS) -c $< -o $@
 
@@ -157,7 +178,7 @@ clean:
 	rm -rf *.o *.lib *.so *.dll *.exe
 	rm -f ../lib/libberts.a ../lib/berts.a ../lib/libberts.lib ../lib/berts.lib ../lib/libberts.so ../lib/berts.so ../lib/libberts.dll ../lib/berts.dll
 
-OBJS += utils.o berts.o gguf.o bert.o quantize.o internal.o log.o 
+OBJS += utils.o berts.o gguf.o bert.o quantize.o internal.o trie.o unicode.o log.o 
 
 $(STATIC_LIB): $(OBJS)
 	ar rcs $@ $^
@@ -183,4 +204,16 @@ test_tokenizer$(EXE_EXT):   tests/test_tokenizer.cpp $(COMMON_HEADERS) $(STATIC_
 	$(CXX) $(CXXFLAGS) $(filter-out %.h %.hpp,$^) $(STAITC_LIB_GGML)   -o $@ $(LDFLAGS)
 
 test_tokenizer_d$(EXE_EXT): tests/test_tokenizer.cpp $(COMMON_HEADERS) $(STATIC_LIB)
+	$(CXX) $(CXXFLAGS) $(filter-out %.h %.hpp,$^) $(STAITC_LIB_GGML_D) -o $@ $(LDFLAGS)
+
+test_unicode$(EXE_EXT):     tests/test_unicode.cpp $(COMMON_HEADERS) $(STATIC_LIB)
+	$(CXX) $(CXXFLAGS) $(filter-out %.h %.hpp,$^) $(STAITC_LIB_GGML)   -o $@ $(LDFLAGS)
+
+test_unicode_d$(EXE_EXT):   tests/test_unicode.cpp $(COMMON_HEADERS) $(STATIC_LIB)
+	$(CXX) $(CXXFLAGS) $(filter-out %.h %.hpp,$^) $(STAITC_LIB_GGML_D) -o $@ $(LDFLAGS)
+
+test_trie$(EXE_EXT):        tests/test_trie.cpp $(COMMON_HEADERS) $(STATIC_LIB)
+	$(CXX) $(CXXFLAGS) $(filter-out %.h %.hpp,$^) $(STAITC_LIB_GGML)   -o $@ $(LDFLAGS)
+
+test_trie_d$(EXE_EXT):      tests/test_trie.cpp $(COMMON_HEADERS) $(STATIC_LIB)
 	$(CXX) $(CXXFLAGS) $(filter-out %.h %.hpp,$^) $(STAITC_LIB_GGML_D) -o $@ $(LDFLAGS)
