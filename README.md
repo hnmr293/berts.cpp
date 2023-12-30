@@ -8,6 +8,11 @@
 
 ## How to build
 
+### Dependency
+
+- [`ICU`](https://unicode-org.github.io/icu/)
+- [`{fmt}`](https://fmt.dev/latest/index.html) (if you need)
+
 ```bash
 $ git clone --depth 1 https://github.com/hnmr293/berts.cpp --recurse-submodules --shallow-submodules
 $ cd berts.cpp
@@ -56,9 +61,8 @@ dev/berts.cpp $ BERTS_DEBUG=1 BERTS_ICU_INCLUDE='C:/Program Files (x86)/Windows 
 
 ## TODO
 
+- inference
 - never_split (any model?)
 - pooling
-- inference
-- zstd vocab
 - load gguf from memory
 - load gguf from std::istream

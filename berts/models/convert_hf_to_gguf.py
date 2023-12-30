@@ -12,6 +12,8 @@ from transformers import (
     BertConfig,
 )
 
+#import zstandard as zstd
+
 def KEY(s: str):
     return 'berts.bert.' + s
 
@@ -171,7 +173,18 @@ def convert(repo_id: str, cache_dir: str|None, output_path: str):
         token_lengths.append(n_bytes)
         token_bytes.append(bytes)
     token_lengths = np.array(token_lengths, dtype=np.uint8)
-    token_bytes = np.frombuffer(b''.join(token_bytes), dtype=np.int8)
+    token_bytes = b''.join(token_bytes)
+
+    #compressor = zstd.ZstdCompressor(
+    #    level=22,
+    #    write_checksum=True,
+    #    write_content_size=True,
+    #    write_dict_id=True,
+    #    threads=-1,
+    #)
+    #
+    #token_bytes = compressor.compress(token_bytes)
+    token_bytes = np.frombuffer(token_bytes, dtype=np.int8)
 
     w.add_tensor(K['BERTS_KEY_ALL_VOCAB_SIZE'], token_lengths, raw_dtype=GGML_TYPE_I8)
     w.add_tensor(K['BERTS_KEY_ALL_VOCAB_DATA'], token_bytes, raw_dtype=GGML_TYPE_I8)
