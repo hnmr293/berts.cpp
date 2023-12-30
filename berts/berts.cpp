@@ -163,10 +163,13 @@ ggml_tensor *berts_eval(berts_context *ctx,
     std::vector<bert_token_t> token_vec(token_count);
     std::copy(tokens, tokens + token_count, token_vec.data());
 
-    std::vector<bert_segment_t> segm_vec(token_count);
-    std::copy(segments, segments + token_count, segm_vec.data());
-
-    return internal::eval(ctx, token_vec, segm_vec);
+    if (segments) {
+        std::vector<bert_segment_t> segm_vec(token_count);
+        std::copy(segments, segments + token_count, segm_vec.data());
+        return internal::eval(ctx, token_vec, segm_vec);
+    } else {
+        return internal::eval(ctx, token_vec);
+    }
 }
 
 namespace berts {
