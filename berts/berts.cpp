@@ -122,9 +122,27 @@ bool berts_tokenize(const berts_context *ctx,
                     bert_token_t *out,
                     size_t *out_len) {
     std::vector<bert_token_t> ids;
-    ids.reserve(std::strlen(text));
+    
+    auto cls_id = internal::get_cls_id(ctx);
+    auto sep_id = internal::get_sep_id(ctx);
+
+    if (cls_id == BERTS_INVALID_TOKEN_ID) {
+        log::error("cls_id is not found");
+        return false;
+    }
+    
+    if (sep_id == BERTS_INVALID_TOKEN_ID) {
+        log::error("sep_id is not found");
+        return false;
+    }
+    
+    ids.reserve(std::strlen(text) + 2 /* cls, sep */);
+    ids.push_back(cls_id);
+    
     bool ok = internal::tokenize(ctx, text, ids);
+    
     if (ok) {
+        ids.push_back(sep_id);
         if (out_len) {
             size_t out_len_ = std::min(*out_len, ids.size());
             *out_len = ids.size();

@@ -90,7 +90,10 @@ struct ustr_impl {
     }
 
     void free() {
-        if (str) delete[] str;
+        if (str) {
+            delete[] str;
+            str = nullptr;
+        }
         size = 0;
     }
 };
