@@ -135,6 +135,8 @@ bool model::init_weight(berts_context *ctx) {
         }
     });
 
+    log::info("initializing weights completed");
+
     return true;
 }
 
