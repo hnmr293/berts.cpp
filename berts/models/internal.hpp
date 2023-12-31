@@ -133,9 +133,9 @@ inline bool check_model(const berts_context *ctx) {
 }
 
 inline ggml_tensor *bert_dense(ggml_context *ctx, ggml_tensor *x, ggml_tensor *w, ggml_tensor *b) {
-    return ggml_add(ctx,
-                    ggml_mul_mat(ctx, w, x),
-                    ggml_repeat(ctx, b, x));
+    x = ggml_mul_mat(ctx, w, x);
+    x = ggml_add(ctx, x, ggml_repeat(ctx, b, x));
+    return x;
 }
 
 inline ggml_tensor *bert_layer_norm(ggml_context *ctx, ggml_tensor *x, ggml_tensor *ln_w, ggml_tensor *ln_b, float eps) {
