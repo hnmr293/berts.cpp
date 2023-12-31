@@ -32,13 +32,14 @@ def get_diffuser_result(repo_id: str, prompt: str, cache_dir: str|None = None):
     inp = tokenizer(prompt, return_tensors='pt')
     print(f'ids = {inp.input_ids}')
     
-    out = model(**inp)
-    last = out.last_hidden_state
+    out = model(**inp, output_hidden_states=True, return_dict=True)
     pool = out.pooler_output
+    hidden = out.hidden_states
 
-    last = last.cpu().to(dtype=torch.float32).squeeze(0)
     pool = pool.cpu().to(dtype=torch.float32).squeeze(0)
-    return last, pool
+    hidden = torch.concat(hidden).cpu().to(dtype=torch.float32).squeeze(1)
+    
+    return pool, hidden
 
 if __name__ == '__main__':
     args = parse_args()
@@ -46,7 +47,8 @@ if __name__ == '__main__':
     cache_dir = args.cache_dir
     prompt = args.prompt
 
-    expected_last, expected_pool = get_diffuser_result(repo_id, prompt, cache_dir=cache_dir)
+    expected_pool, expected_hidden \
+        = get_diffuser_result(repo_id, prompt, cache_dir=cache_dir)
 
     for bin in glob.glob(f'{os.path.dirname(__file__)}/test_eval_*.bin'):
         with open(bin, 'rb') as io:
@@ -56,14 +58,14 @@ if __name__ == '__main__':
             
             print(bin)
 
-            if data.shape == expected_last.shape:
-                # (n, hidden_dim)
-                norm = torch.linalg.vector_norm(data - expected_last, dim=-1)
-                for i, n in enumerate(norm):
-                    print(f'  token {i:>3}: {n.item()}')
-            elif data.shape == expected_pool.shape:
+            if data.shape == expected_pool.shape:
                 # (hidden_dim,)
                 norm = torch.linalg.vector_norm(data - expected_pool, dim=-1)
                 print(f'  pooled   : {norm.item()}')
+            elif data.shape == expected_hidden[-1].shape:
+                # (n, hidden_dim)
+                norm = torch.linalg.vector_norm(data - expected_hidden[-1,:,:], dim=-1)
+                for i, n in enumerate(norm):
+                    print(f'  token {i:>3}: {n.item()}')
             else:
                 raise ValueError(f'unexpected shape = {tuple(data.shape)}')
