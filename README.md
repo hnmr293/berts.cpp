@@ -16,6 +16,9 @@
 ```bash
 $ git clone --depth 1 https://github.com/hnmr293/berts.cpp --recurse-submodules --shallow-submodules
 $ cd berts.cpp
+$ python -m venv .venv --prompt "berts.cpp"
+$ .venv/bin/activate
+$ pip install -r requirements.txt
 $ make
 $ ./berts/main
 ```
