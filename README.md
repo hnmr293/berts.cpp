@@ -64,7 +64,7 @@ dev/berts.cpp $ BERTS_DEBUG=1 BERTS_ICU_INCLUDE='C:/Program Files (x86)/Windows 
 
 ## TODO
 
-- batching
+- batching (attn mask)
 - GPU
 - pooler's act fn (for deberta)
 - never_split (any model?)
