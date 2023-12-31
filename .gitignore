@@ -48,3 +48,4 @@ __pycache__/
 /.gguf
 /lib
 -/lib/dummy
+*.bin

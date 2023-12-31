@@ -1,6 +1,8 @@
 #include <cassert>
+#include <cstdio>
 #include <iostream>
 #include <memory>
+#include <sstream>
 #include <string>
 #include "berts/berts.h"
 
@@ -54,6 +56,16 @@ int main() {
         std::unique_ptr<float[]> out{new float[out_size]};
         result = berts_eval(ctx, tokens.get(), nullptr, size, &cond, out.get(), &out_size);
         assert(result);
+
+        std::stringstream ss{};
+        ss << "test_eval_" << (int)pt << ".bin";
+        FILE *fp = fopen(ss.str().c_str(), "wb");
+        assert(fp);
+
+        int32_t size_ = (int32_t)out_size;
+        fwrite(&size_, sizeof(int32_t), 1, fp);
+        fwrite(out.get(), sizeof(float), out_size, fp);
+        fclose(fp);
     }
 
     berts_free(ctx);
