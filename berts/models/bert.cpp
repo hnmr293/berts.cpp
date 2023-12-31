@@ -530,8 +530,8 @@ bool model::eval(berts_context *ctx,
         return false;
     }
 
-    log::when(BERTS_LOG_DEBUG, [&]() {
-        log::debug(
+    log::when(BERTS_LOG_INFO, [&]() {
+        log::info(
             "  berts_eval_info {{\n"
             "    output_layer = {};\n"
             "    pool_type = {};\n"

@@ -184,15 +184,15 @@ struct berts_eval_info {
     // specify output layer
     // negative value is allowed (indexed from behind)
     // for usual bert architecture:
-    //   -25: *invalid*
-    //   -24: first layer output
+    //   -13: *invalid*
+    //   -12: first layer output
     //   ...
     //   -1: last layer output
     //   0: output embedding (before attentions)
     //   1: first layer output
     //   ...
-    //   24: last layer output
-    //   25: *invalid*
+    //   12: last layer output
+    //   13: *invalid*
     bert_int output_layer;
 
     // pooling type
