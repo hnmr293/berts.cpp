@@ -7,7 +7,7 @@
 #include "berts/berts.h"
 
 int main() {
-    berts_set_log_level(BERTS_LOG_ALL);
+    berts_set_log_level(BERTS_LOG_INFO);
     const char *model_path = ".gguf/bert-base-cased_q8.gguf";
     auto ctx = berts_load_from_file(model_path);
     assert(ctx);
@@ -46,6 +46,7 @@ int main() {
         berts_eval_info cond{
             .output_layer = -1,
             .pool_type = pt,
+            .n_threads = -1,
         };
 
         size_t out_size = 0;

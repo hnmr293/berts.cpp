@@ -197,6 +197,10 @@ struct berts_eval_info {
 
     // pooling type
     berts_pool_type pool_type;
+
+    // a number of threads used in `eval`
+    // <=0 for default value (= 4)
+    int n_threads;
 };
 
 /// @brief evaluate and returns value according to given `berts_eval_info`

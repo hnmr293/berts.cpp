@@ -343,6 +343,8 @@ static inline size_t get_bert_size(size_t token_count,
     const size_t n_heads = hparams.attn_heads;
     const size_t intm_dim = hparams.intermediate_dim;
 
+    size += ggml_graph_overhead();
+
     //
     // embedding
     //
@@ -465,19 +467,11 @@ static inline size_t get_bert_size(size_t token_count,
     case BERTS_POOL_NONE:
         return size;
     case BERTS_POOL_CLS:
-        pool_size += get_tensor_size(GGML_TYPE_F32, hidden_dim);
+        // view
+        pool_size += get_tensor_size(GGML_TYPE_F32, 0); // view
         break;
     case BERTS_POOL_AVG:
-        // transpose -> mean -> transpose -> cont
-        pool_size += get_tensor_size(GGML_TYPE_F32, 0);          // transpose
-        pool_size += get_tensor_size(GGML_TYPE_F32, hidden_dim); // mean
-        pool_size += get_tensor_size(GGML_TYPE_F32, 0);          // transpose
-        pool_size += get_tensor_size(GGML_TYPE_F32, hidden_dim); // cont
-        break;
     case BERTS_POOL_MAX:
-        // transpose -> argmax -> cont
-        pool_size += get_tensor_size(GGML_TYPE_F32, 0);          // transpose
-        pool_size += get_tensor_size(GGML_TYPE_F32, hidden_dim); // argmax
         pool_size += get_tensor_size(GGML_TYPE_F32, hidden_dim); // cont
         break;
     default:
@@ -551,6 +545,7 @@ bool model::eval(berts_context *ctx,
     out_count = needed_out_count;
 
     if (!out) {
+        log::info("finish evaluating BERT (dry run)");
         return true;
     }
 
@@ -691,38 +686,18 @@ bool model::eval(berts_context *ctx,
         using enum berts_pool_type;
     case BERTS_POOL_NONE:
         // return non-pooled tensor
-        {
-            float *data = ggml_get_data_f32(x);
-            size_t count = std::min(input_out_count, needed_out_count);
-            std::copy(data, data + count, out);
-        }
-        return true;
+        goto RUN_COMPUTE;
     case BERTS_POOL_CLS:
         // retrieve first token (hidden_dim,) of (n,hidden_dim)
-        {
-            auto xx = ggml_new_tensor_1d(ggml, GGML_TYPE_F32, x->ne[0]);
-            float *data = ggml_get_data_f32(x);
-            size_t count = std::min(input_out_count, needed_out_count);
-            std::memcpy(xx->data, data, count * sizeof(float));
-            x = xx;
-        }
+        x = ggml_view_1d(ggml, x, x->ne[0], 0);
         break;
     case BERTS_POOL_AVG:
         // average pooling
-        {
-            x = ggml_transpose(ggml, x); // (1,1,hidden_dim,n)
-            x = ggml_mean(ggml, x);      // (1,1,hidden_dim,1)
-            x = ggml_transpose(ggml, x); // (1,1,1,hidden_dim)
-            x = ggml_cont(ggml, x);
-        }
+        x = ggml_pool_2d(ggml, x, GGML_OP_POOL_AVG, 1, n, 1, n, 0, 0);
         break;
     case BERTS_POOL_MAX:
         // max pooling
-        {
-            x = ggml_transpose(ggml, x); // (1,1,hidden_dim,n)
-            x = ggml_argmax(ggml, x);    // (1,1,1,hidden_dim)
-            x = ggml_cont(ggml, x);
-        }
+        x = ggml_pool_2d(ggml, x, GGML_OP_POOL_MAX, 1, n, 1, n, 0, 0);
         break;
     default:
         // must not happen!
@@ -730,10 +705,34 @@ bool model::eval(berts_context *ctx,
         return false;
     }
 
-    GGML_ASSERT(ggml_nelements(x) == hparams.hidden_dim);
+    GGML_ASSERT(x->ne[0] == hparams.hidden_dim && x->ne[1] == 1 && x->ne[2] == 1 && x->ne[3] == 1);
 
     x = bert_dense(ggml, x, this->pool_w, this->pool_b);
     x = ggml_tanh_inplace(ggml, x);
+
+RUN_COMPUTE:
+    // run the computation
+    ggml_cgraph *gf = ggml_new_graph(ggml); // allocated in ggml_context
+    ggml_build_forward_expand(gf, x);
+    ggml_cplan cplan = ggml_graph_plan(gf, cond.n_threads);
+
+    std::unique_ptr<uint8_t[]> work_data{};
+    if (cplan.work_size != 0) {
+        work_data.reset(new uint8_t[cplan.work_size]);
+        cplan.work_data = work_data.get();
+    }
+
+    ggml_graph_compute(gf, &cplan);
+
+#ifdef GGML_PERF
+    log::when(BERTS_LOG_DEBUG, [=]() {
+        ggml_graph_print(gf);
+    });
+#endif
+
+    //
+    // output
+    //
 
     {
         float *data = ggml_get_data_f32(x);
