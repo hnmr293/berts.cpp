@@ -70,8 +70,17 @@ GGML_CMAKE := cmake .. -G "MinGW Makefiles"
 endif
 
 GGML_CMAKE += -DGGML_BUILD_TESTS=OFF -DGGML_BUILD_EXAMPLES=OFF
-GGML_CMAKE_D = $(GGML_CMAKE) -DCMAKE_BUILD_TYPE=Debug
+GGML_CMAKE_D = $(GGML_CMAKE) -DCMAKE_BUILD_TYPE=Debug -DGGML_PERF=ON
 
+ifneq ($(_MINGW),1)
+# do nothing
+else
+# The stack is only 16-byte aligned on Windows, so don't let gcc emit aligned moves.
+# https://gcc.gnu.org/bugzilla/show_bug.cgi?id=54412
+# https://github.com/ggerganov/llama.cpp/issues/2922
+GGML_CMAKE +=   -DCMAKE_C_FLAGS="-Xassembler -muse-unaligned-vector-move"
+GGML_CMAKE += -DCMAKE_CXX_FLAGS="-Xassembler -muse-unaligned-vector-move"
+endif
 
 
 all: ggml ggml_d berts

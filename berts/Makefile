@@ -62,6 +62,16 @@ MK_CXXFLAGS = -std=c++23 -fPIC
 # avoid w64devkit bug
 MK_CPPFLAGS += -fno-rtti
 
+ifneq ($(_MINGW),1)
+# do nothing
+else
+# The stack is only 16-byte aligned on Windows, so don't let gcc emit aligned moves.
+# https://gcc.gnu.org/bugzilla/show_bug.cgi?id=54412
+# https://github.com/ggerganov/llama.cpp/issues/2922
+MK_CFLAGS   += -Xassembler -muse-unaligned-vector-move
+MK_CXXFLAGS += -Xassembler -muse-unaligned-vector-move
+endif
+
 #
 # external libs
 #
