@@ -535,9 +535,11 @@ bool model::eval(berts_context *ctx,
             "  berts_eval_info {{\n"
             "    output_layer = {};\n"
             "    pool_type = {};\n"
+            "    n_threads = {}\n"
             "  }}",
             cond.output_layer,
-            pool_type_str(cond.pool_type));
+            pool_type_str(cond.pool_type),
+            cond.n_threads);
         log::debug("  output size = {}", needed_out_count);
         log::debug("    given     = {}", input_out_count);
     });

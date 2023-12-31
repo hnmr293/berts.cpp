@@ -156,6 +156,15 @@ bool berts_tokenize(const berts_context *ctx,
 // inference
 //
 
+void berts_init_eval_info(berts_eval_info *cond) {
+    if (cond) {
+        cond->output_layer = -1;
+        cond->pool_type = BERTS_POOL_CLS;
+        //cond->output_all_layers = false;
+        cond->n_threads = -1;
+    }
+}
+
 bool berts_eval(berts_context *ctx,
                 const bert_token_t *tokens,
                 const bert_segment_t *segments,

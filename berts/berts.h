@@ -198,10 +198,32 @@ struct berts_eval_info {
     // pooling type
     berts_pool_type pool_type;
 
+#if 0
+    // If true, `output_layers` and `pool_type` is ignored
+    // and returns all hidden states including embeddings.
+    // So returned value will be:
+    // [
+    //   emb_1_1   emb_1_2   .. emb_1_n
+    //   ..
+    //   emb_k_1   emb_k_2   .. emb_k_n
+    //   lay_1_1_1 lay_1_1_2 .. lay_1_1_n
+    //   ..
+    //   lay_1_k_1 lay_1_k_2 .. lay_1_k_n
+    //   ..
+    //   lay_m_1_1 lay_m_1_2 .. lay_m_1_n
+    //   ..
+    //   lay_m_k_1 lay_m_k_2 .. lay_m_k_n
+    // ]
+    // where k is token count, n is hidden dim, m is layer count.
+    bool output_all_layers;
+#endif
+
     // a number of threads used in `eval`
     // <=0 for default value (= 4)
     int n_threads;
 };
+
+BERTS_API void berts_init_eval_info(berts_eval_info *cond);
 
 /// @brief evaluate and returns value according to given `berts_eval_info`
 /// @param tokens token IDs; the length must be specified by `token_count`

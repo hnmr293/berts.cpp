@@ -8,7 +8,7 @@
 
 int main() {
     berts_set_log_level(BERTS_LOG_INFO);
-    const char *model_path = ".gguf/bert-base-cased_q8.gguf";
+    const char *model_path = ".gguf/bert-base-cased-f32.gguf";
     auto ctx = berts_load_from_file(model_path);
     assert(ctx);
 
@@ -43,11 +43,9 @@ int main() {
     for (const auto pt : pool_types) {
         std::cout << pt << std::endl;
 
-        berts_eval_info cond{
-            .output_layer = -1,
-            .pool_type = pt,
-            .n_threads = -1,
-        };
+        berts_eval_info cond{};
+        berts_init_eval_info(&cond);
+        cond.pool_type = pt;
 
         size_t out_size = 0;
         auto result = berts_eval(ctx, tokens.get(), nullptr, size, &cond, nullptr, &out_size);
