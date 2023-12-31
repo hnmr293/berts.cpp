@@ -86,7 +86,7 @@ endif
 all: ggml ggml_d berts
 
 berts: ggml
-	make -C berts
+	make -C berts -j
 
 ggml: $(GGML_LIB_DIR)/$(STAITC_LIB_GGML)
 
