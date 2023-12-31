@@ -64,8 +64,9 @@ dev/berts.cpp $ BERTS_DEBUG=1 BERTS_ICU_INCLUDE='C:/Program Files (x86)/Windows 
 
 ## TODO
 
-- pooler's act fn (for deberta)
+- batching
 - GPU
+- pooler's act fn (for deberta)
 - never_split (any model?)
 - load gguf from memory
 - load gguf from std::istream
