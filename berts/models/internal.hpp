@@ -34,9 +34,18 @@ struct model {
 
     virtual bool load_vocab(berts_context *ctx) = 0;
 
-    ggml_tensor *eval(berts_context *ctx, const std::vector<bert_token_t> &tokens) const;
+    bool eval(berts_context *ctx,
+              const std::vector<bert_token_t> &tokens,
+              const berts_eval_info &cond,
+              float *out,
+              size_t &out_count) const;
 
-    virtual ggml_tensor *eval(berts_context *ctx, const std::vector<bert_token_t> &tokens, const std::vector<bert_segment_t> &segments) const = 0;
+    virtual bool eval(berts_context *ctx,
+                      const std::vector<bert_token_t> &tokens,
+                      const std::vector<bert_segment_t> &segments,
+                      const berts_eval_info &cond,
+                      float *out,
+                      size_t &out_count) const = 0;
 };
 
 /// @brief create new `berts_context`
@@ -57,12 +66,18 @@ bool get_hparams(const berts_context *ctx, hparams *params);
 
 bool is_model_loaded(const berts_context *ctx);
 
-ggml_tensor *eval(berts_context *ctx,
-                  const std::vector<bert_token_t> &tokens);
+bool eval(berts_context *ctx,
+          const std::vector<bert_token_t> &tokens,
+          const berts_eval_info &cond,
+          float *out,
+          size_t &out_count);
 
-ggml_tensor *eval(berts_context *ctx,
-                  const std::vector<bert_token_t> &tokens,
-                  const std::vector<bert_segment_t> &segments);
+bool eval(berts_context *ctx,
+          const std::vector<bert_token_t> &tokens,
+          const std::vector<bert_segment_t> &segments,
+          const berts_eval_info &cond,
+          float *out,
+          size_t &out_count);
 
 //
 // tokenizers

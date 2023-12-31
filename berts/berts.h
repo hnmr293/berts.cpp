@@ -166,10 +166,53 @@ BERTS_API bool berts_tokenize(const berts_context *ctx,
 // inference
 //
 
-BERTS_API ggml_tensor *berts_eval(berts_context *ctx,
-                                  const bert_token_t *tokens,
-                                  const bert_segment_t *segments,
-                                  size_t token_count);
+enum berts_pool_type {
+    // no pooling, returns (token_count, hidden_dim)
+    BERTS_POOL_NONE,
+
+    // first token, returns (hidden_dim,)
+    BERTS_POOL_CLS,
+
+    // average pooling, returns (hidden_dim,)
+    BERTS_POOL_AVG,
+
+    // max pooling, return (hidden_dim,)
+    BERTS_POOL_MAX,
+};
+
+struct berts_eval_info {
+    // specify output layer
+    // negative value is allowed (indexed from behind)
+    // for usual bert architecture:
+    //   -25: *invalid*
+    //   -24: first layer output
+    //   ...
+    //   -1: last layer output
+    //   0: output embedding (before attentions)
+    //   1: first layer output
+    //   ...
+    //   24: last layer output
+    //   25: *invalid*
+    bert_int output_layer;
+
+    // pooling type
+    berts_pool_type pool_type;
+};
+
+/// @brief evaluate and returns value according to given `berts_eval_info`
+/// @param tokens token IDs; the length must be specified by `token_count`
+/// @param segments segment IDs, can be NULL; if not NULL, the length must be specified by `token_count`
+/// @param token_count length of `tokens` and `segments`
+/// @param cond evaluation condition
+/// @param out the buffer where ch-last result will be written, can be NULL; if NULL, needed length will be written to `out_count`
+/// @param out_count input out written length of `out`
+BERTS_API bool berts_eval(berts_context *ctx,
+                          const bert_token_t *tokens,
+                          const bert_segment_t *segments,
+                          size_t token_count,
+                          const berts_eval_info *cond,
+                          float *out,
+                          size_t *out_count);
 
 //
 // quantization

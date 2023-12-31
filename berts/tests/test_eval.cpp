@@ -1,4 +1,5 @@
 #include <cassert>
+#include <iostream>
 #include <memory>
 #include <string>
 #include "berts/berts.h"
@@ -8,7 +9,7 @@ int main() {
     const char *model_path = ".gguf/bert-base-cased_q8.gguf";
     auto ctx = berts_load_from_file(model_path);
     assert(ctx);
-    
+
     const std::string text1 = "Hi, I am [MASK] man. How are you?";
     size_t size = text1.size();
     std::unique_ptr<bert_token_t[]> tokens{new bert_token_t[size]};
@@ -30,8 +31,30 @@ int main() {
     assert(tokens[11] == 136);  // ?
     assert(tokens[12] == 102);  // [SEP]
 
-    auto result = berts_eval(ctx, tokens.get(), nullptr, size);
-    assert(result);
+    const auto pool_types = {
+        BERTS_POOL_NONE,
+        BERTS_POOL_CLS,
+        BERTS_POOL_AVG,
+        BERTS_POOL_MAX,
+    };
+
+    for (const auto pt : pool_types) {
+        std::cout << pt << std::endl;
+
+        berts_eval_info cond{
+            .output_layer = -1,
+            .pool_type = pt,
+        };
+
+        size_t out_size = 0;
+        auto result = berts_eval(ctx, tokens.get(), nullptr, size, &cond, nullptr, &out_size);
+        assert(result);
+        assert(out_size);
+
+        std::unique_ptr<float[]> out{new float[out_size]};
+        result = berts_eval(ctx, tokens.get(), nullptr, size, &cond, out.get(), &out_size);
+        assert(result);
+    }
 
     berts_free(ctx);
 

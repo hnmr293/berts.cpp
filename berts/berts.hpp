@@ -21,12 +21,18 @@ namespace berts {
 // inference
 //
 
-ggml_tensor *eval(berts_context *ctx,
-                  const std::vector<bert_token_t> &tokens);
+bool eval(berts_context *ctx,
+          const std::vector<bert_token_t> &tokens,
+          const berts_eval_info &cond,
+          float *out,
+          size_t &out_count);
 
-ggml_tensor *eval(berts_context *ctx,
-                  const std::vector<bert_token_t> &tokens,
-                  const std::vector<bert_segment_t> &segments);
+bool eval(berts_context *ctx,
+          const std::vector<bert_token_t> &tokens,
+          const std::vector<bert_segment_t> &segments,
+          const berts_eval_info &cond,
+          float *out,
+          size_t &out_count);
 
 //
 // quantization

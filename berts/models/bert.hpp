@@ -42,15 +42,22 @@ struct model : public internal::model {
     ggml_tensor *ln_w = nullptr;
     ggml_tensor *ln_b = nullptr;
     std::vector<transformer_block> layers;
-    
+    ggml_tensor *pool_w = nullptr;
+    ggml_tensor *pool_b = nullptr;
+
     model(ggml_type type)
         : berts::internal::model(type) {}
-    
+
     bool init_weight(berts_context *ctx) override;
-    
+
     bool load_vocab(berts_context *ctx) override;
-    
-    ggml_tensor *eval(berts_context *ctx, const std::vector<bert_token_t> &tokens, const std::vector<bert_segment_t> &segments) const override;
+
+    bool eval(berts_context *ctx,
+              const std::vector<bert_token_t> &tokens,
+              const std::vector<bert_segment_t> &segments,
+              const berts_eval_info &cond,
+              float *out,
+              size_t &out_count) const override;
 };
 
 } // namespace berts::bert

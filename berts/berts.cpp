@@ -122,7 +122,7 @@ bool berts_tokenize(const berts_context *ctx,
                     bert_token_t *out,
                     size_t *out_len) {
     std::vector<bert_token_t> ids;
-    
+
     auto cls_id = internal::get_cls_id(ctx);
     auto sep_id = internal::get_sep_id(ctx);
 
@@ -130,17 +130,17 @@ bool berts_tokenize(const berts_context *ctx,
         log::error("cls_id is not found");
         return false;
     }
-    
+
     if (sep_id == BERTS_INVALID_TOKEN_ID) {
         log::error("sep_id is not found");
         return false;
     }
-    
+
     ids.reserve(std::strlen(text) + 2 /* cls, sep */);
     ids.push_back(cls_id);
-    
+
     bool ok = internal::tokenize(ctx, text, ids);
-    
+
     if (ok) {
         ids.push_back(sep_id);
         if (out_len) {
@@ -156,19 +156,30 @@ bool berts_tokenize(const berts_context *ctx,
 // inference
 //
 
-ggml_tensor *berts_eval(berts_context *ctx,
-                        const bert_token_t *tokens,
-                        const bert_segment_t *segments,
-                        size_t token_count) {
+bool berts_eval(berts_context *ctx,
+                const bert_token_t *tokens,
+                const bert_segment_t *segments,
+                size_t token_count,
+                const berts_eval_info *cond,
+                float *out,
+                size_t *out_count) {
+    if (!cond) {
+        return false;
+    }
+
+    if (!out_count) {
+        return false;
+    }
+
     std::vector<bert_token_t> token_vec(token_count);
     std::copy(tokens, tokens + token_count, token_vec.data());
 
     if (segments) {
         std::vector<bert_segment_t> segm_vec(token_count);
         std::copy(segments, segments + token_count, segm_vec.data());
-        return internal::eval(ctx, token_vec, segm_vec);
+        return internal::eval(ctx, token_vec, segm_vec, *cond, out, *out_count);
     } else {
-        return internal::eval(ctx, token_vec);
+        return internal::eval(ctx, token_vec, *cond, out, *out_count);
     }
 }
 
@@ -178,15 +189,21 @@ namespace berts {
 //     return gguf::load_from_stream(stream);
 // }
 
-ggml_tensor *eval(berts_context *ctx,
-                  const std::vector<bert_token_t> &tokens) {
-    return internal::eval(ctx, tokens);
+bool eval(berts_context *ctx,
+          const std::vector<bert_token_t> &tokens,
+          const berts_eval_info &cond,
+          float *out,
+          size_t &out_count) {
+    return internal::eval(ctx, tokens, cond, out, out_count);
 }
 
-ggml_tensor *eval(berts_context *ctx,
-                  const std::vector<bert_token_t> &tokens,
-                  const std::vector<bert_segment_t> &segments) {
-    return internal::eval(ctx, tokens, segments);
+bool eval(berts_context *ctx,
+          const std::vector<bert_token_t> &tokens,
+          const std::vector<bert_segment_t> &segments,
+          const berts_eval_info &cond,
+          float *out,
+          size_t &out_count) {
+    return internal::eval(ctx, tokens, segments, cond, out, out_count);
 }
 
 bool model_quantize(const std::string &input_path,

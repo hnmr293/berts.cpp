@@ -42,6 +42,10 @@ const char *BERTS_KEY_BERT_ENC_N_O_B = KEY_N(encoder.layer, output.dense.bias);
 const char *BERTS_KEY_BERT_ENC_N_LN_OUT_W = KEY_N(encoder.layer, output.LayerNorm.weight);
 const char *BERTS_KEY_BERT_ENC_N_LN_OUT_B = KEY_N(encoder.layer, output.LayerNorm.bias);
 
+// pooler keys
+const char *BERTS_KEY_BERT_POOL_W = KEY(pooler.dense.weight);
+const char *BERTS_KEY_BERT_POOL_B = KEY(pooler.dense.bias);
+
 static inline ggml_tensor *tensor(ggml_context *ctx, const char *key) {
     auto t = ggml_get_tensor(ctx, key);
     if (!t) {
@@ -113,6 +117,9 @@ bool model::init_weight(berts_context *ctx) {
         GET_TENSOR_N(layer.ln_out_w, BERTS_KEY_BERT_ENC_N_LN_OUT_W, n);
         GET_TENSOR_N(layer.ln_out_b, BERTS_KEY_BERT_ENC_N_LN_OUT_B, n);
     }
+
+    GET_TENSOR(this->pool_w, BERTS_KEY_BERT_POOL_W);
+    GET_TENSOR(this->pool_b, BERTS_KEY_BERT_POOL_B);
 
     // print unused tensors
     log::when(BERTS_LOG_INFO, [&stored, ctx]() {
@@ -298,6 +305,17 @@ bool model::load_vocab(berts_context *ctx) {
     return true;
 }
 
+static inline std::string pool_type_str(berts_pool_type type) {
+    switch (type) {
+        using enum berts_pool_type;
+    case BERTS_POOL_NONE: return "none";
+    case BERTS_POOL_CLS: return "cls";
+    case BERTS_POOL_AVG: return "avg";
+    case BERTS_POOL_MAX: return "max";
+    default: return "";
+    }
+}
+
 static inline size_t get_data_size(ggml_type type, size_t ne0, size_t ne1 = 1, size_t ne2 = 1, size_t ne3 = 1) {
     size_t data_size = ggml_type_size(type) * (ne0 / ggml_blck_size(type));
     data_size *= ne1;
@@ -315,12 +333,17 @@ static inline size_t get_tensor_size(ggml_type type, size_t ne0, size_t ne1 = 1,
 }
 
 static inline size_t get_bert_size(size_t token_count,
-                                   const hparams &hparams) {
+                                   const hparams &hparams,
+                                   const berts_eval_info &cond) {
     size_t size = 0;
     const size_t hidden_dim = hparams.hidden_dim;
     const size_t n_layers = hparams.n_layers;
     const size_t n_heads = hparams.attn_heads;
     const size_t intm_dim = hparams.intermediate_dim;
+
+    //
+    // embedding
+    //
 
     // token emb: tensor_1d I32 (n,)
     // seg emb  : tensor_1d I32 (n,)
@@ -342,15 +365,14 @@ static inline size_t get_bert_size(size_t token_count,
     // ggml_repeat creates a new tensor with same shape of rhs
     size += get_tensor_size(GGML_TYPE_F32, hidden_dim, token_count) * 5;
 
-    size_t layer_size = 0;
+    //
+    // self-attention
+    //
 
     // each layer
+    size_t layer_size = 0;
 
     if (n_layers != 0) {
-        //
-        // self-attention
-        //
-
         // q, k, v
         // clang-format off
         layer_size += (
@@ -430,17 +452,65 @@ static inline size_t get_bert_size(size_t token_count,
 
     size += layer_size * n_layers;
 
+    //
+    // pooler
+    //
+
+    size_t pool_size = 0;
+
+    switch (cond.pool_type) {
+        using enum berts_pool_type;
+    case BERTS_POOL_NONE:
+        return size;
+    case BERTS_POOL_CLS:
+        pool_size += get_tensor_size(GGML_TYPE_F32, hidden_dim);
+        break;
+    case BERTS_POOL_AVG:
+        // transpose -> mean -> transpose -> cont
+        pool_size += get_tensor_size(GGML_TYPE_F32, 0);          // transpose
+        pool_size += get_tensor_size(GGML_TYPE_F32, hidden_dim); // mean
+        pool_size += get_tensor_size(GGML_TYPE_F32, 0);          // transpose
+        pool_size += get_tensor_size(GGML_TYPE_F32, hidden_dim); // cont
+        break;
+    case BERTS_POOL_MAX:
+        // transpose -> argmax -> cont
+        pool_size += get_tensor_size(GGML_TYPE_F32, 0);          // transpose
+        pool_size += get_tensor_size(GGML_TYPE_F32, hidden_dim); // argmax
+        pool_size += get_tensor_size(GGML_TYPE_F32, hidden_dim); // cont
+        break;
+    default:
+        // must not happen!
+        log::error("unknown pooling type: {}", (int)cond.pool_type);
+        return false;
+    }
+
+    // dense
+    pool_size += (get_tensor_size(GGML_TYPE_F32, hidden_dim) + // mul_mat
+                  get_tensor_size(GGML_TYPE_F32, hidden_dim) + // repeat
+                  get_tensor_size(GGML_TYPE_F32, hidden_dim)   // add
+    );
+
+    // gelu_inplace
+    pool_size += get_tensor_size(GGML_TYPE_F32, 0);
+
+    size += pool_size;
+
     return size;
 }
 
-ggml_tensor *model::eval(berts_context *ctx,
-                         const std::vector<bert_token_t> &tokens,
-                         const std::vector<bert_segment_t> &segments) const {
+bool model::eval(berts_context *ctx,
+                 const std::vector<bert_token_t> &tokens,
+                 const std::vector<bert_segment_t> &segments,
+                 const berts_eval_info &cond,
+                 float *out,
+                 size_t &out_count) const {
     static_assert(sizeof(bert_token_t) == sizeof(int32_t));
     static_assert(sizeof(bert_segment_t) == sizeof(int32_t));
 
+    log::info("start evaluating BERT");
+
     if (!check_model(ctx)) {
-        return nullptr;
+        return false;
     }
 
     hparams hparams{};
@@ -449,13 +519,63 @@ ggml_tensor *model::eval(berts_context *ctx,
 
     const auto n = tokens.size();
 
-    size_t size = get_bert_size(n, hparams);
+    log::debug("  #tokens = {}", n);
+
+    const size_t input_out_count = out_count;
+    size_t needed_out_count;
+    switch (cond.pool_type) {
+        using enum berts_pool_type;
+    case BERTS_POOL_NONE: needed_out_count = hparams.hidden_dim * n; break;
+    case BERTS_POOL_CLS: needed_out_count = hparams.hidden_dim * 1; break;
+    case BERTS_POOL_AVG: needed_out_count = hparams.hidden_dim * 1; break;
+    case BERTS_POOL_MAX: needed_out_count = hparams.hidden_dim * 1; break;
+    default:
+        log::error("unknown pooling type: {}", (int)cond.pool_type);
+        return false;
+    }
+
+    log::when(BERTS_LOG_DEBUG, [&]() {
+        log::debug(
+            "  berts_eval_info {{\n"
+            "    output_layer = {};\n"
+            "    pool_type = {};\n"
+            "  }}",
+            cond.output_layer,
+            pool_type_str(cond.pool_type));
+        log::debug("  output size = {}", needed_out_count);
+        log::debug("    given     = {}", input_out_count);
+    });
+
+    out_count = needed_out_count;
+
+    if (!out) {
+        return true;
+    }
+
+    const auto n_layers = hparams.n_layers;
+    auto last_layer_index = cond.output_layer;
+    if (last_layer_index < 0) {
+        if (n_layers < -last_layer_index) {
+            log::error("invalid output_layer_value: {} (expected: {}..{})", last_layer_index, -n_layers, n_layers);
+            return false;
+        }
+        last_layer_index += n_layers + 1; // -24 -> 1
+    } else {
+        if (hparams.n_layers < last_layer_index) {
+            log::error("invalid output_layer_value: {} (expected: {}..{})", last_layer_index, -n_layers, n_layers);
+            return false;
+        }
+    }
+
+    size_t size = get_bert_size(n, hparams, cond);
     ggml_init_params init{
         /* .mem_size   = */ size,
         /* .mem_buffer = */ nullptr,
         /* .no_alloc   = */ false,
     };
     ggml_ctx ggml{init};
+
+    log::debug("  context buffer size = {}", size);
 
     //
     // embeddings
@@ -494,8 +614,12 @@ ggml_tensor *model::eval(berts_context *ctx,
     // hidden_dim := n_head * attn_dim
 
     // * BertEncoder
-    for (const auto &layer : this->layers) {
+    for (const auto [layer_index, layer] : this->layers | std::views::enumerate) {
         // ** BertLayer
+
+        if (last_layer_index <= layer_index) {
+            break;
+        }
 
         // self-attention
         // *** BertAttention
@@ -555,7 +679,69 @@ ggml_tensor *model::eval(berts_context *ctx,
         }
     }
 
-    return x;
+    // x := (1,1,n,hidden_dim)
+
+    //
+    // pooler
+    //
+
+    switch (cond.pool_type) {
+        using enum berts_pool_type;
+    case BERTS_POOL_NONE:
+        // return non-pooled tensor
+        {
+            float *data = ggml_get_data_f32(x);
+            size_t count = std::min(input_out_count, needed_out_count);
+            std::copy(data, data + count, out);
+        }
+        return true;
+    case BERTS_POOL_CLS:
+        // retrieve first token (hidden_dim,) of (n,hidden_dim)
+        {
+            auto xx = ggml_new_tensor_1d(ggml, GGML_TYPE_F32, x->ne[0]);
+            float *data = ggml_get_data_f32(x);
+            size_t count = std::min(input_out_count, needed_out_count);
+            std::memcpy(xx->data, data, count * sizeof(float));
+            x = xx;
+        }
+        break;
+    case BERTS_POOL_AVG:
+        // average pooling
+        {
+            x = ggml_transpose(ggml, x); // (1,1,hidden_dim,n)
+            x = ggml_mean(ggml, x);      // (1,1,hidden_dim,1)
+            x = ggml_transpose(ggml, x); // (1,1,1,hidden_dim)
+            x = ggml_cont(ggml, x);
+        }
+        break;
+    case BERTS_POOL_MAX:
+        // max pooling
+        {
+            x = ggml_transpose(ggml, x); // (1,1,hidden_dim,n)
+            x = ggml_argmax(ggml, x);    // (1,1,1,hidden_dim)
+            x = ggml_cont(ggml, x);
+        }
+        break;
+    default:
+        // must not happen!
+        log::error("unknown pooling type: {}", (int)cond.pool_type);
+        return false;
+    }
+
+    GGML_ASSERT(ggml_nelements(x) == hparams.hidden_dim);
+
+    x = bert_dense(ggml, x, this->pool_w, this->pool_b);
+    x = ggml_tanh_inplace(ggml, x);
+
+    {
+        float *data = ggml_get_data_f32(x);
+        size_t count = std::min(input_out_count, needed_out_count);
+        std::copy(data, data + count, out);
+    }
+
+    log::info("finish evaluating BERT");
+
+    return true;
 }
 
 } // namespace berts::bert

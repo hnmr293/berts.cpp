@@ -61,8 +61,7 @@ dev/berts.cpp $ BERTS_DEBUG=1 BERTS_ICU_INCLUDE='C:/Program Files (x86)/Windows 
 
 ## TODO
 
-- inference
-- pooling
+- pooler's act fn (for deberta)
 - GPU
 - never_split (any model?)
 - load gguf from memory
