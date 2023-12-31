@@ -298,7 +298,142 @@ bool model::load_vocab(berts_context *ctx) {
     return true;
 }
 
-ggml_tensor *model::eval(const berts_context *ctx,
+static inline size_t get_data_size(ggml_type type, size_t ne0, size_t ne1 = 1, size_t ne2 = 1, size_t ne3 = 1) {
+    size_t data_size = ggml_type_size(type) * (ne0 / ggml_blck_size(type));
+    data_size *= ne1;
+    data_size *= ne2;
+    data_size *= ne3;
+    return data_size;
+}
+
+static inline size_t get_tensor_size(ggml_type type, size_t ne0, size_t ne1 = 1, size_t ne2 = 1, size_t ne3 = 1) {
+    size_t size = get_data_size(type, ne0, ne1, ne2, ne3);
+    size += GGML_TENSOR_SIZE;
+    size = GGML_PAD(size, GGML_MEM_ALIGN);
+    size += GGML_OBJECT_SIZE;
+    return size;
+}
+
+static inline size_t get_bert_size(size_t token_count,
+                                   const hparams &hparams) {
+    size_t size = 0;
+    const size_t hidden_dim = hparams.hidden_dim;
+    const size_t n_layers = hparams.n_layers;
+    const size_t n_heads = hparams.attn_heads;
+    const size_t intm_dim = hparams.intermediate_dim;
+
+    // token emb: tensor_1d I32 (n,)
+    // seg emb  : tensor_1d I32 (n,)
+    // pos emb  : tensor_1d I32 (n,)
+    size += get_tensor_size(GGML_TYPE_I32, token_count) * 3;
+
+    // apply embs: F32 (n,hidden_dim)
+    // ggml_get_rows creates a new tensor with type=F32
+    size += get_tensor_size(GGML_TYPE_F32, hidden_dim, token_count) * 3;
+
+    // add embs: F32 (n,hidden_dim)
+    // ggml_add creates a new tensor with same shape of lhs
+    size += get_tensor_size(GGML_TYPE_F32, hidden_dim, token_count) * 2;
+
+    // layer norm: F32 (n,hidden_dim)
+    // ggml_norm + ggml_add, ggml_mul, ggml_repeat, ggml_repeat
+    // ggml_norm creates a new tensor with same shape of arg
+    // ggml_mul creates a new tensor with same shape of lhs
+    // ggml_repeat creates a new tensor with same shape of rhs
+    size += get_tensor_size(GGML_TYPE_F32, hidden_dim, token_count) * 5;
+
+    size_t layer_size = 0;
+
+    // each layer
+
+    if (n_layers != 0) {
+        //
+        // self-attention
+        //
+
+        // q, k, v
+        // clang-format off
+        layer_size += (
+            // dense + reshape: F32 (1,n,n_heads,attn_dim) [same size as (n,hidden_dim)]
+            // dense = add + mul_mat + repeat
+            // reshape is just a view
+            get_tensor_size(GGML_TYPE_F32, hidden_dim, token_count) + // mul_mat
+            get_tensor_size(GGML_TYPE_F32, hidden_dim, token_count) + // repeat
+            get_tensor_size(GGML_TYPE_F32, hidden_dim, token_count) + // add
+            get_tensor_size(GGML_TYPE_F32, 0)                       + // reshape
+            // permute + cont: F32 q,k (1,n_heads,n,attn_dim) [same size as (n,hidden_dim)]
+            //                 F32 v   (1,n_heads,attn_dim,n) [same size as (n,hidden_dim)]
+            // permute is just a view
+            // cont creates a new tensor with same shape of arg
+            get_tensor_size(GGML_TYPE_F32, hidden_dim, token_count) + // cont
+            get_tensor_size(GGML_TYPE_F32, 0)                         // reshape + permute
+        ) * 3;
+        // clang-format on
+
+        // softmax: F32 (1,n_heads,n,n)
+        // mul_mat create a new tensor with the shape (1,n_heads,n,n)
+        // sosftmax create a new tensor with same shape of arg
+        layer_size += get_tensor_size(GGML_TYPE_F32, token_count, token_count, n_heads) * 2;
+
+        // v * sim: F32 (1,n_heads,n,attn_dim) [same size as (n,hidden_dim)]
+        layer_size += get_tensor_size(GGML_TYPE_F32, hidden_dim, token_count);
+
+        // permute + cont: F32 (1,n,n_heads,attn_dim) [same size as (n,hidden_dim)]
+        layer_size += get_tensor_size(GGML_TYPE_F32, 0) + get_tensor_size(GGML_TYPE_F32, hidden_dim, token_count);
+
+        // cpy: F32 (n,hidden_dim)
+        // cpy creates a view of rhs
+        layer_size += get_tensor_size(GGML_TYPE_F32, 0) + get_tensor_size(GGML_TYPE_F32, hidden_dim, token_count);
+
+        // dense
+        // clang-format off
+        layer_size += (
+            get_tensor_size(GGML_TYPE_F32, hidden_dim, token_count) + // mul_mat
+            get_tensor_size(GGML_TYPE_F32, hidden_dim, token_count) + // repeat
+            get_tensor_size(GGML_TYPE_F32, hidden_dim, token_count)   // add
+        );
+        // clang-format on
+
+        // add_inplace
+        // add_inplace creates a view of lhs
+        layer_size += get_tensor_size(GGML_TYPE_F32, 0);
+
+        // layer norm
+        layer_size += get_tensor_size(GGML_TYPE_F32, hidden_dim, token_count) * 5;
+
+        //
+        // intermediate
+        //
+
+        // dense
+        layer_size += (get_tensor_size(GGML_TYPE_F32, intm_dim, token_count) + // mul_mat
+                       get_tensor_size(GGML_TYPE_F32, intm_dim, token_count) + // repeat
+                       get_tensor_size(GGML_TYPE_F32, intm_dim, token_count)   // add
+        );
+
+        // gelu_inplace
+        // gelu_inplace creates a view of arg
+        layer_size += get_tensor_size(GGML_TYPE_F32, 0);
+
+        // dense
+        layer_size += (get_tensor_size(GGML_TYPE_F32, hidden_dim, token_count) + // mul_mat
+                       get_tensor_size(GGML_TYPE_F32, hidden_dim, token_count) + // repeat
+                       get_tensor_size(GGML_TYPE_F32, hidden_dim, token_count)   // add
+        );
+
+        // add_inplace
+        layer_size += get_tensor_size(GGML_TYPE_F32, 0);
+
+        // layer norm
+        layer_size += get_tensor_size(GGML_TYPE_F32, hidden_dim, token_count) * 5;
+    }
+
+    size += layer_size * n_layers;
+
+    return size;
+}
+
+ggml_tensor *model::eval(berts_context *ctx,
                          const std::vector<bert_token_t> &tokens,
                          const std::vector<bert_segment_t> &segments) const {
     static_assert(sizeof(bert_token_t) == sizeof(int32_t));
@@ -312,13 +447,19 @@ ggml_tensor *model::eval(const berts_context *ctx,
     get_hparams(ctx, &hparams);
     auto eps = hparams.eps;
 
-    ggml_ctx ggml{};
+    const auto n = tokens.size();
+
+    size_t size = get_bert_size(n, hparams);
+    ggml_init_params init{
+        /* .mem_size   = */ size,
+        /* .mem_buffer = */ nullptr,
+        /* .no_alloc   = */ false,
+    };
+    ggml_ctx ggml{init};
 
     //
     // embeddings
     //
-
-    const auto n = tokens.size();
 
     auto token_emb = ggml_new_tensor_1d(ggml, GGML_TYPE_I32, n);
     std::memcpy(token_emb->data, tokens.data(), n * ggml_element_size(token_emb));
@@ -340,7 +481,7 @@ ggml_tensor *model::eval(const berts_context *ctx,
     x = bert_layer_norm(ggml, x, this->ln_w, this->ln_b, eps);
 
     // x := (N,hidden_dim)
-    GGML_ASSERT(x->n_dims == 2);
+    GGML_ASSERT(x->n_dims == 2 || (x->ne[2] == 1 && x->ne[3] == 1));
     GGML_ASSERT(x->ne[0] == hparams.hidden_dim);
     GGML_ASSERT((size_t)x->ne[1] == n);
 
@@ -369,19 +510,18 @@ ggml_tensor *model::eval(const berts_context *ctx,
             auto v = bert_dense(ggml, x, layer.v_w, layer.v_b);
             v = ggml_reshape_4d(ggml, v, attn_dim, n_head, n, 1); // (1,N,head,dim)
 
-            // (1,head,N,dim) -> (head,N,dim)
-            q = ggml_cont(ggml, ggml_reshape_3d(ggml, ggml_permute(ggml, q, 0, 2, 1, 3), attn_dim, n, n_head));
-            k = ggml_cont(ggml, ggml_reshape_3d(ggml, ggml_permute(ggml, k, 0, 2, 1, 3), attn_dim, n, n_head));
-            // (1,head,N,dim) -> (head,dim,N)
-            v = ggml_cont(ggml, ggml_reshape_3d(ggml, ggml_permute(ggml, v, 2, 0, 1, 3), n, attn_dim, n_head));
+            // (1,N,head,dim) -> (1,head,N,dim)
+            q = ggml_cont(ggml, ggml_permute(ggml, q, 0, 2, 1, 3));
+            k = ggml_cont(ggml, ggml_permute(ggml, k, 0, 2, 1, 3));
+            // (1,N,head,dim) -> (1,head,dim,N)
+            v = ggml_cont(ggml, ggml_permute(ggml, v, 1, 2, 0, 3));
 
             // sim = softmax(kq / sqrt(attn_dim))
             // (head,N,N)
             const auto scale = 1.0f / std::sqrt((float)attn_dim);
             auto sim = ggml_soft_max_ext(ggml, ggml_mul_mat(ggml, k, q), nullptr, scale);
 
-            auto res = ggml_mul_mat(ggml, v, sim);                      // (head,N,dim)
-            res = ggml_reshape_4d(ggml, res, attn_dim, n, n_head, 1);   // (1,head,N,dim)
+            auto res = ggml_mul_mat(ggml, v, sim);                      // (1,head,N,dim)
             res = ggml_cont(ggml, ggml_permute(ggml, res, 0, 2, 1, 3)); // (1,N,head,dim)
 
             // (N,hidden_dim)

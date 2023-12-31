@@ -50,7 +50,7 @@ struct model : public internal::model {
     
     bool load_vocab(berts_context *ctx) override;
     
-    ggml_tensor *eval(const berts_context *ctx, const std::vector<bert_token_t> &tokens, const std::vector<bert_segment_t> &segments) const override;
+    ggml_tensor *eval(berts_context *ctx, const std::vector<bert_token_t> &tokens, const std::vector<bert_segment_t> &segments) const override;
 };
 
 } // namespace berts::bert
