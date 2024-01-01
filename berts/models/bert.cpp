@@ -535,6 +535,13 @@ bool model::eval(berts_context *ctx,
         return false;
     }
 
+    for (const auto segm : segments) {
+        if (hparams.segment_count <= (bert_int)segm) {
+            log::error("invalid segment value: {} (allowed = 0..{})", segm, hparams.segment_count - 1);
+            return false;
+        }
+    }
+
     const size_t input_out_count = out_count;
     size_t needed_out_count;
     switch (cond.pool_type) {

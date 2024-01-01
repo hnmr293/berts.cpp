@@ -102,6 +102,7 @@ def convert(repo_id: str, cache_dir: str|None, output_path: str):
   max_token  = {config.max_position_embeddings}
   interm_dim = {config.intermediate_size}
   hidden_act = {config.hidden_act}
+  segments   = {config.type_vocab_size}
   init_range = {config.initializer_range}
 '''.strip())
     
@@ -118,6 +119,7 @@ def convert(repo_id: str, cache_dir: str|None, output_path: str):
     w.add_uint32(K['BERTS_KEY_HPARAM_HIDDEN_ACT'], 0) # GeLU
     assert model.config.hidden_act == 'gelu'
     w.add_float64(K['BERTS_KEY_HPARAM_LN_EPS'], config.layer_norm_eps)
+    w.add_uint32(K['BERTS_KEY_HPARAM_SEGM_COUNT'], config.type_vocab_size)
     w.add_float64(K['BERTS_KEY_HPARAM_INIT_RANGE'], config.initializer_range)
 
     # tokenizer params

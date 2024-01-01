@@ -20,6 +20,7 @@ struct hparams {
     bert_int attn_heads;
     bert_int max_tokens;
     bert_int intermediate_dim;
+    bert_int segment_count;
     enum hidden_act hidden_act;
     double eps;
     double initializer_range;

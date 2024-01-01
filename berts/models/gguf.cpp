@@ -218,6 +218,7 @@ berts_context *load_from_file(const std::string &path) {
     hparams.attn_heads = gguf_u32(gguf, BERTS_KEY_HPARAM_ATTN_HEADS);
     hparams.max_tokens = gguf_u32(gguf, BERTS_KEY_HPARAM_MAX_TOKENS);
     hparams.intermediate_dim = gguf_u32(gguf, BERTS_KEY_HPARAM_INTERMEDIATE_DIM);
+    hparams.segment_count = gguf_u32(gguf, BERTS_KEY_HPARAM_SEGM_COUNT, 2);
     hparams.hidden_act = static_cast<hidden_act>(gguf_u32(gguf, BERTS_KEY_HPARAM_HIDDEN_ACT));
     hparams.eps = gguf_f64(gguf, BERTS_KEY_HPARAM_LN_EPS, 1e-12);
     hparams.initializer_range = gguf_f64(gguf, BERTS_KEY_HPARAM_INIT_RANGE, 0.02);
@@ -231,6 +232,7 @@ berts_context *load_from_file(const std::string &path) {
         "  attn_heads: {}\n"
         "  max_tokens: {}\n"
         "  intermediate_dim: {}\n"
+        "  segments: {}\n"
         "  hidden_act: {}\n"
         "  eps: {}\n"
         "  init_range: {}",
@@ -241,6 +243,7 @@ berts_context *load_from_file(const std::string &path) {
         hparams.attn_heads,
         hparams.max_tokens,
         hparams.intermediate_dim,
+        hparams.segment_count,
         (int)hparams.hidden_act,
         hparams.eps,
         hparams.initializer_range);
