@@ -57,7 +57,7 @@ int main() {
         assert(result);
 
         std::stringstream ss{};
-        ss << "test_eval_" << (int)pt << ".bin";
+        ss << "test_bert_" << (int)pt << ".bin";
         FILE *fp = fopen(ss.str().c_str(), "wb");
         assert(fp);
 
