@@ -149,6 +149,17 @@ bool berts_tokenize(const berts_context *ctx,
             if (out) std::copy(ids.begin(), ids.begin() + out_len_, out);
         }
     }
+
+    internal::hparams hparams{};
+    auto max_tokens = internal::get_hparams(ctx, &hparams);
+    if (hparams.max_tokens < ids.size()) {
+        log::warn(
+            "Token count ({}) is larger than the max_position_embeddings ({}). "
+            "Calling eval() with this sequence will cause a failure.",
+            ids.size(),
+            hparams.max_tokens);
+    }
+
     return ok;
 }
 
@@ -160,7 +171,7 @@ void berts_init_eval_info(berts_eval_info *cond) {
     if (cond) {
         cond->output_layer = -1;
         cond->pool_type = BERTS_POOL_CLS;
-        //cond->output_all_layers = false;
+        // cond->output_all_layers = false;
         cond->n_threads = -1;
     }
 }

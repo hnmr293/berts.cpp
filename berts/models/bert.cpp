@@ -525,6 +525,16 @@ bool model::eval(berts_context *ctx,
 
     log::debug("  #tokens = {}", n);
 
+    if (hparams.max_tokens < n) {
+        log::error("too many tokens ({}) for this model ({})", n, hparams.max_tokens);
+        return false;
+    }
+
+    if (n != segments.size()) {
+        log::error("segment count ({}) is not match for tokens ({})", segments.size(), n);
+        return false;
+    }
+
     const size_t input_out_count = out_count;
     size_t needed_out_count;
     switch (cond.pool_type) {
