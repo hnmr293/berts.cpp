@@ -22,6 +22,7 @@ struct hparams {
     bert_int intermediate_dim;
     enum hidden_act hidden_act;
     double eps;
+    double initializer_range;
 };
 
 struct model {

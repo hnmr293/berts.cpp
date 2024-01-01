@@ -35,6 +35,9 @@
 // type: f64 *optional, defaults to `1e-12`
 #define BERTS_KEY_HPARAM_LN_EPS "berts.layer_norm_eps"
 
+// type: f64 *optional, defaults to `0.02`
+#define BERTS_KEY_HPARAM_INIT_RANGE "berts.initializer_range"
+
 //
 // tokenizer_config.json
 //
