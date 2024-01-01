@@ -14,30 +14,38 @@ struct berts_context {
     std::unique_ptr<internal::model> model;
     gguf_context *gguf;
     ggml_context *ctx;
-    bool initialized_success;
 
     berts_context(const internal::hparams &hparams, internal::model *model, gguf_context *gguf, ggml_context *ctx)
         : hparams(hparams)
         , model(model)
         , gguf(gguf)
-        , ctx(ctx)
-        , initialized_success(false) {
+        , ctx(ctx) {}
+
+    static berts_context *create(const internal::hparams &hparams, internal::model *model, gguf_context *gguf, ggml_context *ctx) {
         if (!model) {
             log::error("model is empty");
-            return;
+            return nullptr;
         }
 
-        if (!model->init_vocab(this)) {
+        berts_context *berts = new berts_context{hparams, model, gguf, ctx};
+
+        if (!model->init_vocab(berts)) {
             log::error("fail to load vocab");
-            return;
+            delete berts;
+            return nullptr;
         }
 
-        if (!model->init_weight(this)) {
+        if (!model->init_weight(berts)) {
             log::error("fail to load weights");
-            return;
+            delete berts;
+            return nullptr;
         }
 
-        this->initialized_success = true;
+        return berts;
+    }
+
+    static void free(berts_context *berts) {
+        delete berts;
     }
 };
 
@@ -56,16 +64,11 @@ bool model::eval(berts_context *ctx,
 }
 
 berts_context *new_context(const hparams &hparams, model *model, gguf_context *gguf, ggml_context *ctx) {
-    auto bert = new berts_context{hparams, model, gguf, ctx};
-    if (!bert->initialized_success) {
-        delete bert;
-        bert = nullptr;
-    }
-    return bert;
+    return berts_context::create(hparams, model, gguf, ctx);
 }
 
 void free_context(berts_context *ctx) {
-    delete ctx;
+    berts_context::free(ctx);
 }
 
 gguf_context *get_gguf_context(berts_context *ctx) {
