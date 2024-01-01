@@ -8,7 +8,7 @@
 int main() {
 
     berts_set_log_level(BERTS_LOG_ALL);
-    const char *model_path = ".gguf/bert-base-cased_q8.gguf";
+    const char *model_path = ".gguf/bert-base-cased-f32.gguf";
     auto ctx = berts_load_from_file(model_path);
     assert(ctx);
 
@@ -87,95 +87,6 @@ int main() {
     assert(pad_id == pad_id1);
     assert(sep_id == sep_id1);
     assert(unk_id == unk_id1);
-
-    //
-    // tokenizer conditions
-    //
-
-    {
-        berts_tokenizer_info cond1{};
-        berts_init_tokenizer_info(&cond1);
-        assert(cond1.normalize);
-        assert(cond1.remove_replacement_char);
-        assert(cond1.remove_null_char);
-        assert(cond1.remove_control_char);
-        assert(cond1.normalize_whitespaces);
-        assert(cond1.add_space_around_cjk_char);
-        assert(cond1.do_lower_case);
-        assert(cond1.strip_accents);
-        assert(cond1.split_on_punc);
-    }
-
-    {
-        berts_tokenizer_info cond1{};
-        berts_init_tokenizer_info_no_basic(&cond1);
-        assert(cond1.normalize);
-        assert(!cond1.remove_replacement_char);
-        assert(!cond1.remove_null_char);
-        assert(!cond1.remove_control_char);
-        assert(cond1.normalize_whitespaces);
-        assert(!cond1.add_space_around_cjk_char);
-        assert(!cond1.do_lower_case);
-        assert(!cond1.strip_accents);
-        assert(!cond1.split_on_punc);
-    }
-
-    {
-        berts_tokenizer_info cond{};
-        berts_get_tokenizer_info(ctx, &cond);
-        assert(cond.normalize);
-        assert(cond.remove_replacement_char);
-        assert(cond.remove_null_char);
-        assert(cond.remove_control_char);
-        assert(cond.normalize_whitespaces);
-        assert(cond.add_space_around_cjk_char);
-        // bert-base-cased does not use `do_lower_case` option
-        assert(!cond.do_lower_case);
-        assert(!cond.strip_accents);
-        assert(cond.split_on_punc);
-    }
-
-    {
-        berts_tokenizer_info cond1{};
-        berts_get_tokenizer_info(ctx, &cond1);
-        assert(cond1.normalize);
-        assert(cond1.remove_replacement_char);
-        assert(cond1.remove_null_char);
-        assert(cond1.remove_control_char);
-        assert(cond1.normalize_whitespaces);
-        assert(cond1.add_space_around_cjk_char);
-        // bert-base-cased does not use `do_lower_case` option
-        assert(!cond1.do_lower_case);
-        assert(!cond1.strip_accents);
-        assert(cond1.split_on_punc);
-
-        berts_tokenizer_info cond2{cond1};
-        cond2.strip_accents = true;
-        berts_set_tokenizer_info(ctx, &cond2);
-        berts_tokenizer_info cond3{};
-        berts_get_tokenizer_info(ctx, &cond3);
-        assert(cond3.normalize);
-        assert(cond3.remove_replacement_char);
-        assert(cond3.remove_null_char);
-        assert(cond3.remove_control_char);
-        assert(cond3.normalize_whitespaces);
-        assert(cond3.add_space_around_cjk_char);
-        assert(!cond3.do_lower_case);
-        assert(cond3.strip_accents);
-        assert(cond3.split_on_punc);
-
-        berts_set_tokenizer_info(ctx, &cond1);
-        berts_get_tokenizer_info(ctx, &cond3);
-        assert(cond3.normalize);
-        assert(cond3.remove_replacement_char);
-        assert(cond3.remove_null_char);
-        assert(cond3.remove_control_char);
-        assert(cond3.normalize_whitespaces);
-        assert(cond3.add_space_around_cjk_char);
-        assert(!cond3.do_lower_case);
-        assert(!cond3.strip_accents);
-        assert(cond3.split_on_punc);
-    }
 
     //
     // tokenize

@@ -64,47 +64,49 @@ berts_context *berts_load_from_file(const char *path) {
 // tokenizer
 //
 
-void berts_init_tokenizer_info(berts_tokenizer_info *cond) {
-    if (cond) internal::init_tokenizer_info_default(*cond);
+static inline bool check_model(const berts_context *ctx) {
+    if (!internal::check_ctx(ctx)) {
+        return false;
+    }
+    if (!internal::check_model(ctx)) {
+        return false;
+    }
+    return true;
 }
 
-void berts_init_tokenizer_info_no_basic(berts_tokenizer_info *cond) {
-    if (cond) internal::init_tokenizer_info_no_basic(*cond);
-}
-
-void berts_get_tokenizer_info(const berts_context *ctx, berts_tokenizer_info *cond) {
-    if (cond) internal::get_tokenizer_info(ctx, *cond);
-}
-
-void berts_set_tokenizer_info(berts_context *ctx, const berts_tokenizer_info *cond) {
-    if (cond) internal::set_tokenizer_info(ctx, *cond);
-}
+#define BERTS_CHECK_MODEL_OR(default_) if (!check_model(ctx)) { return (default_); } auto &model = internal::get_model(ctx);
 
 bert_token_t berts_cls_id(const berts_context *ctx) {
-    return internal::get_cls_id(ctx);
+    BERTS_CHECK_MODEL_OR(BERTS_INVALID_TOKEN_ID);
+    return model.cls_id();
 }
 
 bert_token_t berts_mask_id(const berts_context *ctx) {
-    return internal::get_mask_id(ctx);
+    BERTS_CHECK_MODEL_OR(BERTS_INVALID_TOKEN_ID);
+    return model.mask_id();
 }
 
 bert_token_t berts_pad_id(const berts_context *ctx) {
-    return internal::get_pad_id(ctx);
+    BERTS_CHECK_MODEL_OR(BERTS_INVALID_TOKEN_ID);
+    return model.pad_id();
 }
 
 bert_token_t berts_sep_id(const berts_context *ctx) {
-    return internal::get_sep_id(ctx);
+    BERTS_CHECK_MODEL_OR(BERTS_INVALID_TOKEN_ID);
+    return model.sep_id();
 }
 
 bert_token_t berts_unk_id(const berts_context *ctx) {
-    return internal::get_unk_id(ctx);
+    BERTS_CHECK_MODEL_OR(BERTS_INVALID_TOKEN_ID);
+    return model.unk_id();
 }
 
 bool berts_id_to_token(const berts_context *ctx,
                        bert_token_t id,
                        char *out,
                        size_t *out_len) {
-    const auto token = internal::id_to_token(ctx, id);
+    BERTS_CHECK_MODEL_OR(false);
+    const auto token = model.id_to_token(id);
     if (out_len) {
         size_t out_len_ = std::min(*out_len, token.size());
         *out_len = token.size();
@@ -114,17 +116,20 @@ bool berts_id_to_token(const berts_context *ctx,
 }
 
 bert_token_t berts_token_to_id(const berts_context *ctx, const char *token) {
-    return internal::token_to_id(ctx, token);
+    BERTS_CHECK_MODEL_OR(false);
+    return model.token_to_id(token);
 }
 
 bool berts_tokenize(const berts_context *ctx,
                     const char *text,
                     bert_token_t *out,
                     size_t *out_len) {
+    BERTS_CHECK_MODEL_OR(false);
+    
     std::vector<bert_token_t> ids;
 
-    auto cls_id = internal::get_cls_id(ctx);
-    auto sep_id = internal::get_sep_id(ctx);
+    auto cls_id = model.cls_id();
+    auto sep_id = model.sep_id();
 
     if (cls_id == BERTS_INVALID_TOKEN_ID) {
         log::error("cls_id is not found");
@@ -139,7 +144,7 @@ bool berts_tokenize(const berts_context *ctx,
     ids.reserve(std::strlen(text) + 2 /* cls, sep */);
     ids.push_back(cls_id);
 
-    bool ok = internal::tokenize(ctx, text, ids);
+    bool ok = model.tokenize(ctx, text, ids);
 
     if (ok) {
         ids.push_back(sep_id);
@@ -151,8 +156,8 @@ bool berts_tokenize(const berts_context *ctx,
     }
 
     internal::hparams hparams{};
-    auto max_tokens = internal::get_hparams(ctx, &hparams);
-    if (hparams.max_tokens < ids.size()) {
+    internal::get_hparams(ctx, &hparams);
+    if ((size_t)hparams.max_tokens < ids.size()) {
         log::warn(
             "Token count ({}) is larger than the max_position_embeddings ({}). "
             "Calling eval() with this sequence will cause a failure.",
@@ -183,6 +188,8 @@ bool berts_eval(berts_context *ctx,
                 const berts_eval_info *cond,
                 float *out,
                 size_t *out_count) {
+    BERTS_CHECK_MODEL_OR(false);
+    
     if (!cond) {
         return false;
     }
@@ -197,9 +204,9 @@ bool berts_eval(berts_context *ctx,
     if (segments) {
         std::vector<bert_segment_t> segm_vec(token_count);
         std::copy(segments, segments + token_count, segm_vec.data());
-        return internal::eval(ctx, token_vec, segm_vec, *cond, out, *out_count);
+        return model.eval(ctx, token_vec, segm_vec, *cond, out, *out_count);
     } else {
-        return internal::eval(ctx, token_vec, *cond, out, *out_count);
+        return model.eval(ctx, token_vec, *cond, out, *out_count);
     }
 }
 
@@ -214,7 +221,8 @@ bool eval(berts_context *ctx,
           const berts_eval_info &cond,
           float *out,
           size_t &out_count) {
-    return internal::eval(ctx, tokens, cond, out, out_count);
+    BERTS_CHECK_MODEL_OR(false);
+    return model.eval(ctx, tokens, cond, out, out_count);
 }
 
 bool eval(berts_context *ctx,
@@ -223,7 +231,8 @@ bool eval(berts_context *ctx,
           const berts_eval_info &cond,
           float *out,
           size_t &out_count) {
-    return internal::eval(ctx, tokens, segments, cond, out, out_count);
+    BERTS_CHECK_MODEL_OR(false);
+    return model.eval(ctx, tokens, segments, cond, out, out_count);
 }
 
 bool model_quantize(const std::string &input_path,

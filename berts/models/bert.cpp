@@ -5,13 +5,244 @@
 #include <cmath>
 #include <cstring>
 #include <ranges>
+#include <unordered_map>
+#include <unordered_set>
 #include "berts/models/gguf.hpp"
 #include "berts/models/keys.h"
+#include "berts/models/trie.hpp"
+#include "berts/models/unicode.hpp"
 #include "berts/models/utils.hpp"
+
+using namespace berts::internal;
+using namespace berts::unicode;
+namespace uni = berts::unicode;
+using trie_t = berts::trie::trie;
+
+// std::unique_resource<trie::trie>
+namespace std {
+
+template <>
+struct default_delete<trie_t> {
+    void operator()(trie_t *trie) const noexcept {
+        if (trie) berts::trie::free_trie(trie);
+    }
+};
+
+} // namespace std
 
 namespace berts::bert {
 
-using namespace berts::internal;
+struct tokenizer_info {
+    // ignored, always normalized with NFC
+    bool normalize;
+
+    // remove U+FFFD
+    bool remove_replacement_char;
+
+    // remove U+0000
+    bool remove_null_char;
+
+    // remove control chars (category C*)
+    bool remove_control_char;
+
+    // convert all whitespaces to a normal space (U+0020)
+    bool normalize_whitespaces;
+
+    // add space around all CJK characters
+    bool add_space_around_cjk_char;
+
+    // force input to be lowercase letters
+    bool do_lower_case;
+
+    // remove all accent chars
+    bool strip_accents;
+
+    // split words at a punctuation
+    bool split_on_punc;
+
+    static tokenizer_info basic() {
+        return {
+            .normalize = true,
+            .remove_replacement_char = true,
+            .remove_null_char = true,
+            .remove_control_char = true,
+            .normalize_whitespaces = true,
+            .add_space_around_cjk_char = true,
+            .do_lower_case = true,
+            .strip_accents = true,
+            .split_on_punc = true,
+        };
+    }
+
+    static tokenizer_info no_basic() {
+        return {
+            .normalize = true,
+            .remove_replacement_char = false,
+            .remove_null_char = false,
+            .remove_control_char = false,
+            .normalize_whitespaces = true,
+            .add_space_around_cjk_char = false,
+            .do_lower_case = false,
+            .strip_accents = false,
+            .split_on_punc = false,
+        };
+    }
+};
+
+struct special_tokens {
+    bert_token_t cls;
+    bert_token_t mask;
+    bert_token_t pad;
+    bert_token_t sep;
+    bert_token_t unk;
+};
+
+struct vocab {
+    tokenizer_info cond;
+    special_tokens special;
+    std::unique_ptr<trie_t> trie;
+    std::vector<std::string> id_to_token;
+    std::unordered_map<std::string, bert_token_t> token_to_id;
+
+    vocab()
+        : trie(nullptr) {
+        special.cls = BERTS_INVALID_TOKEN_ID;
+        special.mask = BERTS_INVALID_TOKEN_ID;
+        special.pad = BERTS_INVALID_TOKEN_ID;
+        special.sep = BERTS_INVALID_TOKEN_ID;
+        special.unk = BERTS_INVALID_TOKEN_ID;
+    }
+
+    vocab(size_t n)
+        : vocab() {
+        id_to_token.reserve(n);
+        token_to_id.reserve(n);
+    }
+
+    bool build_trie() {
+        trie.reset(trie::build_trie(id_to_token));
+        return this->operator bool();
+    }
+
+    void clear() {
+        id_to_token.clear();
+        token_to_id.clear();
+        trie.reset();
+    }
+
+    operator bool() const noexcept {
+        return trie && id_to_token.size();
+    }
+};
+
+static inline std::string id_to_token(const vocab &vocab, bert_token_t token_id) {
+    if (vocab.id_to_token.size() <= token_id) {
+        log::error("token id {} is not found (max={})", token_id, vocab.id_to_token.size());
+        return "";
+    }
+
+    return vocab.id_to_token[token_id];
+}
+
+static inline bert_token_t token_to_id(const vocab &vocab, const std::string &token) {
+    const auto p = vocab.token_to_id.find(token);
+    if (p == vocab.token_to_id.end()) {
+        log::error("token {} is not found", token);
+        return BERTS_INVALID_TOKEN_ID;
+    }
+
+    return p->second;
+}
+
+static inline bool has_token(const vocab &vocab, const std::string &token) {
+    const auto p = vocab.token_to_id.find(token);
+    return p != vocab.token_to_id.end();
+}
+
+static inline bool add_token(vocab &vocab, const std::string &token) {
+    if (has_token(vocab, token)) {
+        log::warn("  token {} already exists", token);
+        return false;
+    }
+
+    const auto next_id = static_cast<bert_token_t>(vocab.id_to_token.size());
+    vocab.id_to_token.push_back(token);
+    vocab.token_to_id[token] = next_id;
+    // log::debug("  token {}: {}", next_id, token);
+
+    return true;
+}
+
+static inline bert_token_t get_special_token_id(const vocab &vocab, const gguf_context *gguf, const char *key, const char *alternate) {
+    auto id = gguf::gguf_u32(gguf, key, BERTS_INVALID_TOKEN_ID);
+    if (id == BERTS_INVALID_TOKEN_ID) {
+        log::warn("{} is not defined; use {} instead", key, alternate);
+        id = token_to_id(vocab, alternate);
+        if (id == BERTS_INVALID_TOKEN_ID) {
+            log::error("{} does not exist in vocab", alternate);
+        }
+    }
+    return id;
+}
+
+//
+// model::model
+//
+
+model::model(ggml_type type)
+    : berts::internal::model(type)
+    , vocab(new berts::bert::vocab{}) {
+}
+
+//
+// model::~model
+//
+
+model::~model() = default;
+
+//
+// some meber functions
+//
+
+std::string model::id_to_token(bert_token_t token_id) const noexcept {
+    return bert::id_to_token(*vocab, token_id);
+}
+
+bert_token_t model::token_to_id(const std::string &token) const noexcept {
+    return bert::token_to_id(*vocab, token);
+}
+
+bool model::add_token(const std::string &token) {
+    return bert::add_token(*vocab, token);
+}
+
+bool model::has_token(const std::string &token) const noexcept {
+    return bert::has_token(*vocab, token);
+}
+
+bert_token_t model::cls_id() const noexcept {
+    return vocab->special.cls;
+}
+
+bert_token_t model::mask_id() const noexcept {
+    return vocab->special.mask;
+}
+
+bert_token_t model::pad_id() const noexcept {
+    return vocab->special.pad;
+}
+
+bert_token_t model::sep_id() const noexcept {
+    return vocab->special.sep;
+}
+
+bert_token_t model::unk_id() const noexcept {
+    return vocab->special.unk;
+}
+
+//
+// model::init_weight
+//
 
 #define KEY_PREFIX "berts.bert."
 #define KEY(s) KEY_PREFIX #s
@@ -140,19 +371,11 @@ bool model::init_weight(berts_context *ctx) {
     return true;
 }
 
-static inline bert_token_t get_special_token_id(const berts_context *ctx, const gguf_context *gguf, const char *key, const char *alternate) {
-    auto id = gguf::gguf_u32(gguf, key, BERTS_INVALID_TOKEN_ID);
-    if (id == BERTS_INVALID_TOKEN_ID) {
-        log::warn("{} is not defined; use {} instead", key, alternate);
-        id = internal::token_to_id(ctx, alternate);
-        if (id == BERTS_INVALID_TOKEN_ID) {
-            log::error("{} does not exist in vocab", alternate);
-        }
-    }
-    return id;
-}
+//
+// model::init_vocab
+//
 
-bool model::load_vocab(berts_context *ctx) {
+bool model::init_vocab(berts_context *ctx) {
     log::info("loading vocab");
 
     if (!check_ctx(ctx)) {
@@ -201,7 +424,7 @@ bool model::load_vocab(berts_context *ctx) {
         std::string token{&data[p], token_len};
         p += token_len;
 
-        internal::add_token(ctx, token);
+        add_token(token);
     }
 
     if (p != vocab_data->ne[0]) {
@@ -209,18 +432,19 @@ bool model::load_vocab(berts_context *ctx) {
         return false;
     }
 
-    auto cls_id = get_special_token_id(ctx, gguf, BERTS_KEY_TOKENIZER_CLS_ID, "[CLS]");
-    auto mask_id = get_special_token_id(ctx, gguf, BERTS_KEY_TOKENIZER_MASK_ID, "[MASK]");
-    auto pad_id = get_special_token_id(ctx, gguf, BERTS_KEY_TOKENIZER_PAD_ID, "[PAD]");
-    auto sep_id = get_special_token_id(ctx, gguf, BERTS_KEY_TOKENIZER_SEP_ID, "[SEP]");
-    auto unk_id = get_special_token_id(ctx, gguf, BERTS_KEY_TOKENIZER_UNK_ID, "[UNK]");
+    struct vocab &vocab = *this->vocab;
+    auto cls_id = get_special_token_id(vocab, gguf, BERTS_KEY_TOKENIZER_CLS_ID, "[CLS]");
+    auto mask_id = get_special_token_id(vocab, gguf, BERTS_KEY_TOKENIZER_MASK_ID, "[MASK]");
+    auto pad_id = get_special_token_id(vocab, gguf, BERTS_KEY_TOKENIZER_PAD_ID, "[PAD]");
+    auto sep_id = get_special_token_id(vocab, gguf, BERTS_KEY_TOKENIZER_SEP_ID, "[SEP]");
+    auto unk_id = get_special_token_id(vocab, gguf, BERTS_KEY_TOKENIZER_UNK_ID, "[UNK]");
 
-    log::when(BERTS_LOG_INFO, [=]() {
-        auto cls = internal::id_to_token(ctx, cls_id);
-        auto mask = internal::id_to_token(ctx, mask_id);
-        auto pad = internal::id_to_token(ctx, pad_id);
-        auto sep = internal::id_to_token(ctx, sep_id);
-        auto unk = internal::id_to_token(ctx, unk_id);
+    log::when(BERTS_LOG_INFO, [=, &vocab]() {
+        auto cls = bert::id_to_token(vocab, cls_id);
+        auto mask = bert::id_to_token(vocab, mask_id);
+        auto pad = bert::id_to_token(vocab, pad_id);
+        auto sep = bert::id_to_token(vocab, sep_id);
+        auto unk = bert::id_to_token(vocab, unk_id);
         log::info("  cls_id:  {} ({})", cls_id, cls);
         log::info("  mask_id: {} ({})", mask_id, mask);
         log::info("  pad_id:  {} ({})", pad_id, pad);
@@ -236,11 +460,11 @@ bool model::load_vocab(berts_context *ctx) {
         return false;
     }
 
-    internal::set_cls_id(ctx, cls_id);
-    internal::set_mask_id(ctx, mask_id);
-    internal::set_pad_id(ctx, pad_id);
-    internal::set_sep_id(ctx, sep_id);
-    internal::set_unk_id(ctx, unk_id);
+    vocab.special.cls = cls_id;
+    vocab.special.mask = mask_id;
+    vocab.special.pad = pad_id;
+    vocab.special.sep = sep_id;
+    vocab.special.unk = unk_id;
 
     auto do_lower_case = gguf::gguf_bool(gguf, BERTS_KEY_TOKENIZER_DO_LOWER_CASE, true);
     auto do_basic_tokenize = gguf::gguf_bool(gguf, BERTS_KEY_TOKENIZER_DO_BASIC_TOKENIZE, true);
@@ -266,12 +490,9 @@ bool model::load_vocab(berts_context *ctx) {
     }
     */
 
-    berts_tokenizer_info cond{};
-    if (do_basic_tokenize) {
-        internal::init_tokenizer_info_default(cond);
-    } else {
-        internal::init_tokenizer_info_no_basic(cond);
-    }
+    tokenizer_info cond = do_basic_tokenize
+                              ? tokenizer_info::basic()
+                              : tokenizer_info::no_basic();
 
     cond.do_lower_case = do_lower_case;
     cond.add_space_around_cjk_char = tokenize_chinese_chars;
@@ -280,7 +501,7 @@ bool model::load_vocab(berts_context *ctx) {
     log::when(BERTS_LOG_INFO, [&cond, do_basic_tokenize]() {
         log::info("  do_basic_tokenize = {}", do_basic_tokenize);
         log::info(
-            "  berts_tokenizer_info {{\n"
+            "  tokenizer_info {{\n"
             "    bool normalize = {:<5s};                 // ignored, always normalized with NFC\n"
             "    bool remove_replacement_char = {:<5s};   // remove U+FFFD\n"
             "    bool remove_null_char = {:<5s};          // remove U+0000\n"
@@ -302,10 +523,298 @@ bool model::load_vocab(berts_context *ctx) {
             cond.split_on_punc);
     });
 
-    internal::set_tokenizer_info(ctx, cond);
+    vocab.cond = cond;
+
+    if (!vocab.build_trie()) {
+        log::error("fail to build vocab");
+        vocab.clear();
+        return false;
+    }
 
     return true;
 }
+
+//
+// model::tokenize
+//
+
+// ref: transformers.BasicTokenizer
+// ' ', '\t', '\n' and '\r' are control characters,
+// but we treat them as whitespace here.
+#define BERTS_UNICODE_IS_WS(c) ((c == ' ' || c == '\t' || c == '\n' || c == '\r') || uni::is_whitespace(c))
+#define BERTS_UNICODE_IS_CTRL(c) (c != ' ' && c != '\t' && c != '\n' && c != '\r' && uni::is_control(c))
+#define BERTS_UNICODE_IS_CJK(c) ((c >= 0x4E00 && c <= 0x9FFF) || (c >= 0x3400 && c <= 0x4DBF) || (c >= 0x20000 && c <= 0x2A6DF) || (c >= 0x2A700 && c <= 0x2B73F) || (c >= 0x2B740 && c <= 0x2B81F) || (c >= 0x2B820 && c <= 0x2CEAF) || (c >= 0xF900 && c <= 0xFAFF) || (c >= 0x2F800 && c <= 0x2FA1F))
+// ^ from transformers.BasicTokenizer._is_chinese_char
+
+static inline ustr safe_norm_nfc(const ustr &in) {
+    ustr s{};
+    if (!normalize_nfc(in, s)) {
+        s = in;
+    }
+    return s;
+}
+
+static inline ustr safe_norm_nfd(const ustr &in) {
+    ustr s{};
+    if (!normalize_nfd(in, s)) {
+        s = in;
+    }
+    return s;
+}
+
+static void clean_text_and_split(const ustr &in, std::vector<ustr> &out, const tokenizer_info &cond) {
+    std::vector<ustr::cp> cleaned;
+    cleaned.reserve(in.packsize());
+
+    in.each_cp(false, [&cleaned, &cond](ustr::cp C) {
+        auto c = C.c;
+
+        if (c == 0) {
+            if (cond.remove_null_char) {
+                log::info("null character found in text");
+            } else {
+                cleaned.push_back(c);
+            }
+            return;
+        }
+
+        if (c == 0xfffd) {
+            if (cond.remove_replacement_char) {
+                log::when(BERTS_LOG_INFO, [&C]() {
+                    std::string msg;
+                    if (C.is_pair()) {
+                        msg = berts::fmt::fmt(
+                            "invalid sequence found: lone {} surrogate {:04x}",
+                            C.hi ? "high" : "low",
+                            C.hi ? (int)C.hi : (int)C.lo);
+                    } else {
+                        msg = "0xfffd found";
+                    }
+                    log::info(msg);
+                });
+            } else {
+                cleaned.push_back(c);
+            }
+            return;
+        }
+
+        if (BERTS_UNICODE_IS_CTRL(c)) {
+            if (cond.remove_control_char) {
+                // do nothing
+            } else {
+                cleaned.push_back(c);
+            }
+            return;
+        }
+
+        if (BERTS_UNICODE_IS_WS(c)) {
+            if (cond.normalize_whitespaces) {
+                // treat all whitespaces to single space ' ' (U+0020)
+                cleaned.push_back(' ');
+            } else {
+                cleaned.push_back(c);
+            }
+            return;
+        }
+
+        // normal character
+        {
+            bool add_space = BERTS_UNICODE_IS_CJK(c) && cond.add_space_around_cjk_char;
+            if (add_space) cleaned.push_back(' ');
+            cleaned.push_back(C);
+            if (add_space) cleaned.push_back(' ');
+        }
+    });
+
+    // strip
+    std::vector<unic_t> current{};
+    for (auto &&C : cleaned) {
+        if (C.c == ' ') {
+            // split words
+            if (current.empty()) {
+                // proceeding spaces
+                // skipping...
+            } else {
+                out.emplace_back(current);
+                current.clear();
+            }
+            continue;
+        }
+
+        if (C.is_pair()) {
+            current.push_back(C.hi);
+            current.push_back(C.lo);
+        } else {
+            current.push_back((unic_t)C.c);
+        }
+    }
+
+    if (!current.empty()) {
+        out.emplace_back(current);
+    }
+}
+
+static bool basic_tokenize(const std::string &text,
+                           const std::unordered_set<ustr> &never_split,
+                           std::vector<ustr> &result,
+                           const tokenizer_info &cond) {
+    log::debug("start basic_tokenize");
+
+    // NFC normalization
+    ustr s = safe_norm_nfc({text});
+
+    // clean text (invalid character removal and whitespace cleanup)
+    // and add whitespaces around CJK chars
+    // and strip preceeding and trailing spaces
+    // and split words by spaces
+    std::vector<ustr> words{};
+    clean_text_and_split(s, words, cond);
+
+    for (auto &&word : words) {
+        if (never_split.contains(word)) {
+            result.push_back(word);
+            continue;
+        }
+
+        if (cond.do_lower_case) {
+            ustr s1{std::move(word)};
+            uni::to_lower(s1, word);
+        }
+
+        if (cond.strip_accents) {
+            ustr s1 = safe_norm_nfd(word);
+            std::vector<unic32_t> s2{};
+            s1.each_cp(true, [&s2](ustr::cp C) {
+                if (!uni::is_category(C.c, "Mn")) {
+                    s2.push_back(C.c);
+                }
+            });
+            word = safe_norm_nfc({s2});
+        }
+
+        if (!cond.split_on_punc) {
+            result.push_back(word);
+            continue;
+        }
+
+        // split at a puctuation
+
+        std::vector<unic32_t> temp{};
+        word.each_cp(true, [&result, &temp](ustr::cp C) {
+            // .ab.cd.
+            if (uni::is_punct(C.c)) {
+                // .ab.cd.
+                // ^  ^  ^
+                if (!temp.empty()) {
+                    // .ab.cd.
+                    //     ~~^-C
+                    //       ` temp
+                    result.emplace_back(temp);
+                    temp.clear();
+                }
+                result.emplace_back(&C.c, 1);
+            } else {
+                // .ab.cd.
+                //  ^^ ^^
+                temp.push_back(C.c);
+            }
+        });
+
+        if (!temp.empty()) {
+            result.emplace_back(temp);
+        }
+    }
+
+    log::debug("end basic_tokenize");
+
+    return true;
+}
+
+static bool wordpiece_tokenize(const vocab &vocab,
+                               const std::vector<ustr> &words,
+                               std::vector<bert_token_t> &result) {
+    log::debug("start wordpiece_tokenize");
+
+    auto root_node = trie::trie_root(vocab.trie.get());
+    auto cont_node = trie::search_node(vocab.trie.get(), ustr{"##", 2});
+    if (!cont_node) {
+        log::error("corrupted vocab: \"##\" is not found");
+        return false;
+    }
+
+    auto unk = vocab.special.unk;
+
+    auto root = root_node;
+    for (const auto &word : words) {
+        ustr found{}, rest{word};
+        while (!rest.empty()) {
+            const auto id = trie::search_trie_substr(root, rest, found, rest);
+            if (id != BERTS_INVALID_TOKEN_ID) {
+                // found
+                result.push_back(id);
+                root = rest.empty() ? root_node : cont_node;
+                log::when(BERTS_LOG_DEBUG, [&found, id] {
+                    log::debug("  token: {} ({})", found.encode(), id);
+                });
+            } else {
+                // not found
+                result.push_back(unk);
+                log::when(BERTS_LOG_WARN, [&rest] {
+                    log::warn("  unknown token: {}", rest.encode());
+                });
+                break;
+            }
+        }
+    }
+
+    log::debug("end wordpiece_tokenize");
+
+    return true;
+}
+
+static bool tokenize(const vocab &vocab,
+                     const std::string &text,
+                     const std::unordered_set<std::string> &never_split,
+                     std::vector<bert_token_t> &result) {
+    log::info("start tokenize");
+
+    // usually never_split is small, so
+    // i expect this does not cause
+    // performance issue :)
+    std::unordered_set<ustr> keep{};
+    for (const auto &word : never_split) {
+        keep.emplace(word);
+    }
+
+    std::vector<ustr> split_tokens{};
+    basic_tokenize(text, keep, split_tokens, vocab.cond);
+
+    wordpiece_tokenize(vocab, split_tokens, result);
+
+    log::info("end tokenize");
+
+    return true;
+}
+
+bool model::tokenize(const berts_context *ctx, const std::string &text, std::vector<bert_token_t> &out) const {
+    (void)ctx;
+
+    const auto &vocab = *this->vocab;
+    const auto &sp = vocab.special;
+    std::string cls = vocab.id_to_token[sp.cls];
+    std::string mask = vocab.id_to_token[sp.mask];
+    std::string pad = vocab.id_to_token[sp.pad];
+    std::string sep = vocab.id_to_token[sp.sep];
+    std::string unk = vocab.id_to_token[sp.unk];
+
+    std::unordered_set<std::string> never_split{cls, mask, pad, sep, unk};
+
+    return bert::tokenize(vocab, text, never_split, out);
+}
+
+//
+// model::eval
+//
 
 static inline std::string pool_type_str(berts_pool_type type) {
     switch (type) {
@@ -525,7 +1034,7 @@ bool model::eval(berts_context *ctx,
 
     log::debug("  #tokens = {}", n);
 
-    if (hparams.max_tokens < n) {
+    if ((size_t)hparams.max_tokens < n) {
         log::error("too many tokens ({}) for this model ({})", n, hparams.max_tokens);
         return false;
     }

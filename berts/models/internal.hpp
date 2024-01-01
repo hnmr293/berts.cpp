@@ -1,7 +1,6 @@
 #pragma once
 
 #include <string>
-#include <unordered_map>
 #include <vector>
 #include "berts/berts.h"
 #include "berts/models/log.hpp"
@@ -32,9 +31,41 @@ struct model {
     model(ggml_type type)
         : type(type) {}
 
+    virtual ~model();
+
+    //
+    // initialize
+    //
+
+    virtual bool init_vocab(berts_context *ctx) = 0;
+
     virtual bool init_weight(berts_context *ctx) = 0;
 
-    virtual bool load_vocab(berts_context *ctx) = 0;
+    //
+    // tokenizer
+    //
+
+    virtual std::string id_to_token(bert_token_t token_id) const noexcept = 0;
+
+    virtual bert_token_t token_to_id(const std::string &token) const noexcept = 0;
+
+    virtual bool add_token(const std::string &token) = 0;
+
+    virtual bool has_token(const std::string &token) const noexcept = 0;
+
+    virtual bert_token_t cls_id() const noexcept = 0;
+
+    virtual bert_token_t mask_id() const noexcept = 0;
+
+    virtual bert_token_t pad_id() const noexcept = 0;
+
+    virtual bert_token_t sep_id() const noexcept = 0;
+
+    virtual bert_token_t unk_id() const noexcept = 0;
+
+    virtual bool tokenize(const berts_context *ctx,
+                          const std::string &text,
+                          std::vector<bert_token_t> &out) const = 0;
 
     bool eval(berts_context *ctx,
               const std::vector<bert_token_t> &tokens,
@@ -68,60 +99,9 @@ bool get_hparams(const berts_context *ctx, hparams *params);
 
 bool is_model_loaded(const berts_context *ctx);
 
-bool eval(berts_context *ctx,
-          const std::vector<bert_token_t> &tokens,
-          const berts_eval_info &cond,
-          float *out,
-          size_t &out_count);
+model &get_model(berts_context *ctx);
 
-bool eval(berts_context *ctx,
-          const std::vector<bert_token_t> &tokens,
-          const std::vector<bert_segment_t> &segments,
-          const berts_eval_info &cond,
-          float *out,
-          size_t &out_count);
-
-//
-// tokenizers
-//
-
-std::string id_to_token(const berts_context *ctx, bert_token_t token_id);
-
-bert_token_t token_to_id(const berts_context *ctx, const std::string &token);
-
-bool add_token(berts_context *ctx, const std::string &token);
-
-bool has_token(const berts_context *ctx, const std::string &token);
-
-void get_tokenizer_info(const berts_context *ctx, berts_tokenizer_info &cond);
-
-void set_tokenizer_info(berts_context *ctx, const berts_tokenizer_info &cond);
-
-void init_tokenizer_info_default(berts_tokenizer_info &cond);
-
-void init_tokenizer_info_no_basic(berts_tokenizer_info &cond);
-
-bert_token_t get_cls_id(const berts_context *ctx);
-
-void set_cls_id(berts_context *ctx, bert_token_t id);
-
-bert_token_t get_mask_id(const berts_context *ctx);
-
-void set_mask_id(berts_context *ctx, bert_token_t id);
-
-bert_token_t get_pad_id(const berts_context *ctx);
-
-void set_pad_id(berts_context *ctx, bert_token_t id);
-
-bert_token_t get_sep_id(const berts_context *ctx);
-
-void set_sep_id(berts_context *ctx, bert_token_t id);
-
-bert_token_t get_unk_id(const berts_context *ctx);
-
-void set_unk_id(berts_context *ctx, bert_token_t id);
-
-bool tokenize(const berts_context *ctx, const std::string &text, std::vector<bert_token_t> &out);
+const model &get_model(const berts_context *ctx);
 
 //
 // utilities

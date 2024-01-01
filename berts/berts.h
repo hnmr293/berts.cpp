@@ -101,43 +101,6 @@ BERTS_API berts_context *berts_load_from_file(const char *path);
 // tokenizer
 //
 
-struct berts_tokenizer_info {
-    // ignored, always normalized with NFC
-    bool normalize;
-
-    // remove U+FFFD
-    bool remove_replacement_char;
-
-    // remove U+0000
-    bool remove_null_char;
-
-    // remove control chars (category C*)
-    bool remove_control_char;
-
-    // convert all whitespaces to a normal space (U+0020)
-    bool normalize_whitespaces;
-
-    // add space around all CJK characters
-    bool add_space_around_cjk_char;
-
-    // force input to be lowercase letters
-    bool do_lower_case;
-
-    // remove all accent chars
-    bool strip_accents;
-
-    // split words at a punctuation
-    bool split_on_punc;
-};
-
-BERTS_API void berts_init_tokenizer_info(berts_tokenizer_info *cond);
-
-BERTS_API void berts_init_tokenizer_info_no_basic(berts_tokenizer_info *cond);
-
-BERTS_API void berts_get_tokenizer_info(const berts_context *ctx, berts_tokenizer_info *cond);
-
-BERTS_API void berts_set_tokenizer_info(berts_context *ctx, const berts_tokenizer_info *cond);
-
 BERTS_API bert_token_t berts_cls_id(const berts_context *ctx);
 
 BERTS_API bert_token_t berts_mask_id(const berts_context *ctx);
