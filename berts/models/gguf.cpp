@@ -219,7 +219,7 @@ berts_context *load_from_file(const std::string &path) {
     hparams.max_tokens = gguf_u32(gguf, BERTS_KEY_HPARAM_MAX_TOKENS);
     hparams.intermediate_dim = gguf_u32(gguf, BERTS_KEY_HPARAM_INTERMEDIATE_DIM);
     hparams.hidden_act = static_cast<hidden_act>(gguf_u32(gguf, BERTS_KEY_HPARAM_HIDDEN_ACT));
-    hparams.eps = gguf_f64(gguf, BERTS_KEY_HPARAM_LN_EPS);
+    hparams.eps = gguf_f64(gguf, BERTS_KEY_HPARAM_LN_EPS, 1e-12);
 
     log::info(
         "hparams\n"
