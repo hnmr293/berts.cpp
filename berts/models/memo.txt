@@ -1,0 +1,86 @@
+BERT と DeBERTa の違い
+
+RoBERTa
+- Model
+    - pad_token_id
+        token_id という名前だが、トークンIDに加えて位置インデックスとしても使われる
+        まず Embedding の padding_idx に渡される
+        指定されたインデックスのベクトルが学習時に勾配をもたないようになる
+        また、position_id は 1 からではなく pad_token_id の次の数字から始めるようにする
+        （基本的に pad_token_id: 0 なのであまり関係ないけど）
+        トークンごとに 1 ずつ増やしていくのは BERT と同じだが、
+        途中トークンIDが pad_token_id だったらそこは 0 にしてスキップする
+- Tokenizer
+    - 標準で word piece から bpe になった
+    - bpe の辞書として merges.txt が追加されている
+    - BOS, EOSトークンが追加されている
+      文章の最初と最後につける
+      デフォルトでは、<bos> と <cls>、<eos> と <sep> は同じトークンを指すように構築される
+    - スペースを区切り文字としない
+      したがって "Hello" と " Hello" では異なるID列を生成する
+    - トークンの区切りパターンは
+      /'s|'t|'re|'ve|'m|'ll|'d| ?\p{L}+| ?\p{N}+| ?[^\s\p{L}\p{N}]+|\s+(?!\S)|\s+/
+    - モデルによっては SentencePiece を使ったりしている
+
+DeBERTa
+- Model
+    - hidden_act
+    - pos_att_type [default: []]
+        中の値は "c2p", "p2c"
+        それぞれ content-to-position と position-to-content
+        c2p があると pos_proj (Linear(bias=False)) が、
+        p2c があると pos_q_proj (Linear) が、
+        それぞれ追加れる
+    - relative_attention [default: False]
+        true のとき encoder に rel_embeddings が追加される
+    - max_relative_positions [default: -1, <1: max_position_embeddings]
+        rel_embeddings の num_embeddings を決める数字
+        embedding_dim は hidden_size
+    - position_biased_input
+        false のときは position embeddings を足さない
+        ついでに type_vocab_size (berts.cpp では segment) が 0 のときは
+        token_type_embeddings も足さない
+    - z_steps
+        最終出力を変えているが、使われている形跡がない
+    - embedding_size
+        embeddings のサイズを変えられるようになった
+        指定されていないときは hidden_size と同じになる
+        hidden_size と異なる値が指定されているとき、
+        emb_proj という non-bias な Linear 層が追加される
+    - talking_head [default: False]
+        true のとき Linear(bias=False) 層が二つ追加される
+    
+    embeddings -> encoder の流れは変わらないが、
+    
+    z_steps というのが追加されて最終出力を更新するようになっている
+    TODO: あとで確認
+    
+    pad_token_id はデフォルトで 0
+    
+    q, k, v が一つにまとめられて in_proj になっている
+    head の数を n として
+    [ q_1 ; k_1 ; v_1 ; q_2 ; k_2 ; v_2 ; .. ; q_n ; k_n ; v_n ]
+    の順に並んでいる
+    in_proj は bias=False だが、それとは別に
+    q_bias, v_bias を持っていて、head を分けたあとに bias として足しこむ
+    どういうことなの……
+
+    DebertaLayerNorm は tensorflow (eps は variance の eps) に合わせるために
+    わざわざ再実装したとあるが、pytorch の LayerNorm も variance の eps なので
+    別に再実装の必要はない気がする。
+    （実際、DeBERTa-v2 では LayerNorm に置き換えられている）
+
+    
+
+DeBERTa-v2
+- position_buckets
+- norm_rel_ebd
+- share_att_key
+- conv_kernel_size
+- conv_act
+- attention_head_size (hidden_size / num_attention_heads)
+- pooler_hidden_act
+- pooler_hidden_size
+
+DeBERTa-v3
+- none?
