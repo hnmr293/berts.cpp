@@ -186,11 +186,14 @@ log.o: models/log.cpp models/log.hpp $(COMMON_HEADERS)
 utils.o: models/utils.cpp models/utils.hpp $(COMMON_HEADERS)
 	$(CXX) $(CXXFLAGS) -c $< -o $@
 
+bpe.o: models/bpe.cpp models/bpe.hpp $(COMMON_HEADERS)
+	$(CXX) $(CXXFLAGS) -c $< -o $@
+
 clean:
 	rm -rf *.o *.lib *.so *.dll *.exe
 	rm -f ../lib/libberts.a ../lib/berts.a ../lib/libberts.lib ../lib/berts.lib ../lib/libberts.so ../lib/berts.so ../lib/libberts.dll ../lib/berts.dll
 
-OBJS += utils.o berts.o gguf.o bert.o quantize.o internal.o trie.o unicode.o log.o 
+OBJS += utils.o berts.o gguf.o bert.o quantize.o internal.o trie.o unicode.o log.o bpe.o 
 
 $(STATIC_LIB): $(OBJS)
 	ar rcs $@ $^
