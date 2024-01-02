@@ -211,7 +211,7 @@ berts_context *load_from_file(const std::string &path) {
     }
 
     internal::hparams hparams{};
-    hparams.architecture = static_cast<bert_type>(gguf_u32(gguf, BERTS_KEY_HPARAM_BERT_TYPE));
+    hparams.architecture = static_cast<internal::bert_type>(gguf_u32(gguf, BERTS_KEY_HPARAM_BERT_TYPE));
     hparams.vocab_size = gguf_u32(gguf, BERTS_KEY_HPARAM_VOCAB_SIZE);
     hparams.hidden_dim = gguf_u32(gguf, BERTS_KEY_HPARAM_HIDDEN_DIM);
     hparams.n_layers = gguf_u32(gguf, BERTS_KEY_HPARAM_N_LAYERS);
@@ -219,7 +219,7 @@ berts_context *load_from_file(const std::string &path) {
     hparams.max_tokens = gguf_u32(gguf, BERTS_KEY_HPARAM_MAX_TOKENS);
     hparams.intermediate_dim = gguf_u32(gguf, BERTS_KEY_HPARAM_INTERMEDIATE_DIM);
     hparams.segment_count = gguf_u32(gguf, BERTS_KEY_HPARAM_SEGM_COUNT, 2);
-    hparams.hidden_act = static_cast<hidden_act>(gguf_u32(gguf, BERTS_KEY_HPARAM_HIDDEN_ACT));
+    hparams.hidden_act = static_cast<internal::hidden_act>(gguf_u32(gguf, BERTS_KEY_HPARAM_HIDDEN_ACT));
     hparams.eps = gguf_f64(gguf, BERTS_KEY_HPARAM_LN_EPS, 1e-12);
     hparams.initializer_range = gguf_f64(gguf, BERTS_KEY_HPARAM_INIT_RANGE, 0.02);
 
@@ -255,7 +255,7 @@ berts_context *load_from_file(const std::string &path) {
 
     // check act
     switch (hparams.hidden_act) {
-        using enum hidden_act;
+        using enum internal::hidden_act;
     case BERTS_HIDDEN_ACT_GELU:
         // ok
         break;
@@ -268,7 +268,7 @@ berts_context *load_from_file(const std::string &path) {
 
     // create model
     switch (hparams.architecture) {
-        using enum bert_type;
+        using enum internal::bert_type;
     case BERTS_TYPE_BERT:
         // ok
         model = new bert::model(type);

@@ -11,6 +11,15 @@ namespace berts::internal {
 // models
 //
 
+enum bert_type {
+    BERTS_TYPE_BERT,
+    // BERTS_TYPE_DEBERTA,
+};
+
+enum hidden_act {
+    BERTS_HIDDEN_ACT_GELU,
+};
+
 struct hparams {
     bert_type architecture;
     bert_int vocab_size;

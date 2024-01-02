@@ -73,19 +73,6 @@ BERTS_API FILE *berts_get_log_file(void);
 BERTS_API void berts_set_log_file(FILE *file);
 
 //
-// hparams
-//
-
-enum bert_type {
-    BERTS_TYPE_BERT,
-    // BERTS_TYPE_DEBERTA,
-};
-
-enum hidden_act {
-    BERTS_HIDDEN_ACT_GELU,
-};
-
-//
 // context
 //
 
