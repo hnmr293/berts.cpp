@@ -1,53 +1,55 @@
 #include <cassert>
 #include <string>
 #include <vector>
+#include "berts/berts.h"
 #include "berts/models/bpe.hpp"
-#include "berts/models/unicode.hpp"
 
-using ustr = berts::unicode::ustr;
-
-static inline std::vector<ustr> tokenize(const berts::bpe &bpe, const ustr &token) {
-    std::vector<ustr> result{};
-    bool ok = bpe.tokenize(token, result);
-    assert(ok);
-    return result;
-}
+#define TOKENIZE(var, bpe, token)                 \
+    berts::bpe::tokenized_t var{};                \
+    {                                             \
+        bool ok = (bpe).tokenize((token), (var)); \
+        assert(ok);                               \
+    }
 
 int main() {
+    using str_t = berts::bpe::str_t;
     using vocab_t = berts::bpe::vocab_t;
-    using merge_t = berts::bpe::merge_t;
-    
+    using merge_t = std::vector<berts::bpe::token_pair>;
+
+    berts_set_log_level(BERTS_LOG_ALL);
+
     // unfused <unk>
     {
         berts::bpe bpe{"<unk>", 0.0, false};
         vocab_t vocab{{
-            {ustr{"a"}, 0},
-            {ustr{"b"}, 1},
+            {str_t{"<unk>"}, 0},
+            {str_t{"a"}, 1},
+            {str_t{"b"}, 2},
         }};
         merge_t merge{};
         bool ok = bpe.load_vocab(vocab, merge);
         assert(ok);
 
         {
-            auto r = tokenize(bpe, "c");
+            TOKENIZE(r, bpe, "c");
             assert(r.size() == 1);
-            assert(r[0] == ustr{"<unk>"});
+            assert(r[0] == str_t{"<unk>"});
         }
 
         {
-            auto r = tokenize(bpe, "cc");
+            TOKENIZE(r, bpe, "cc");
             assert(r.size() == 2);
-            assert(r[0] == ustr{"<unk>"});
-            assert(r[1] == ustr{"<unk>"});
+            assert(r[0] == str_t{"<unk>"});
+            assert(r[1] == str_t{"<unk>"});
         }
 
         {
-            auto r = tokenize(bpe, "accb");
+            TOKENIZE(r, bpe, "accb");
             assert(r.size() == 4);
-            assert(r[0] == ustr{"a"});
-            assert(r[1] == ustr{"<unk>"});
-            assert(r[2] == ustr{"<unk>"});
-            assert(r[3] == ustr{"b"});
+            assert(r[0] == str_t{"a"});
+            assert(r[1] == str_t{"<unk>"});
+            assert(r[2] == str_t{"<unk>"});
+            assert(r[3] == str_t{"b"});
         }
     }
 
@@ -55,32 +57,32 @@ int main() {
     {
         berts::bpe bpe{"<unk>", 0.0, true};
         vocab_t vocab{{
-            {ustr{"a"}, 0},
-            {ustr{"b"}, 1},
+            {str_t{"<unk>"}, 0},
+            {str_t{"a"}, 1},
+            {str_t{"b"}, 2},
         }};
         merge_t merge{};
         bool ok = bpe.load_vocab(vocab, merge);
         assert(ok);
 
         {
-            auto r = tokenize(bpe, "c");
+            TOKENIZE(r, bpe, "c");
             assert(r.size() == 1);
-            assert(r[0] == ustr{"<unk>"});
+            assert(r[0] == str_t{"<unk>"});
         }
 
         {
-            auto r = tokenize(bpe, "cc");
-            assert(r.size() == 2);
-            assert(r[0] == ustr{"<unk>"});
-            assert(r[1] == ustr{"<unk>"});
+            TOKENIZE(r, bpe, "cc");
+            assert(r.size() == 1);
+            assert(r[0] == str_t{"<unk>"});
         }
 
         {
-            auto r = tokenize(bpe, "accb");
+            TOKENIZE(r, bpe, "accb");
             assert(r.size() == 3);
-            assert(r[0] == ustr{"a"});
-            assert(r[1] == ustr{"<unk>"});
-            assert(r[2] == ustr{"b"});
+            assert(r[0] == str_t{"a"});
+            assert(r[1] == str_t{"<unk>"});
+            assert(r[2] == str_t{"b"});
         }
     }
 
@@ -88,22 +90,22 @@ int main() {
     {
         berts::bpe bpe{"<unk>", 0.0};
         vocab_t vocab{{
-            {ustr{"u"}, 0},
-            {ustr{"n"}, 1},
-            {ustr{"r"}, 2},
-            {ustr{"e"}, 3},
-            {ustr{"l"}, 4},
-            {ustr{"a"}, 5},
-            {ustr{"t"}, 6},
-            {ustr{"d"}, 7},
-            {ustr{"re"}, 8},
-            {ustr{"at"}, 9},
-            {ustr{"ed"}, 10},
-            {ustr{"un"}, 11},
-            {ustr{"ated"}, 12},
-            {ustr{"rel"}, 13},
-            {ustr{"related"}, 14},
-            {ustr{"unrelated"}, 15},
+            {str_t{"u"}, 0},
+            {str_t{"n"}, 1},
+            {str_t{"r"}, 2},
+            {str_t{"e"}, 3},
+            {str_t{"l"}, 4},
+            {str_t{"a"}, 5},
+            {str_t{"t"}, 6},
+            {str_t{"d"}, 7},
+            {str_t{"re"}, 8},
+            {str_t{"at"}, 9},
+            {str_t{"ed"}, 10},
+            {str_t{"un"}, 11},
+            {str_t{"ated"}, 12},
+            {str_t{"rel"}, 13},
+            {str_t{"related"}, 14},
+            {str_t{"unrelated"}, 15},
         }};
         merge_t merge{{
             {"r", "e"},
@@ -119,29 +121,29 @@ int main() {
         assert(ok);
 
         {
-            auto r = tokenize(bpe, "unrelated");
+            TOKENIZE(r, bpe, "unrelated");
             assert(r.size() == 1);
-            assert(r[0] == ustr{"unrelated"});
+            assert(r[0] == str_t{"unrelated"});
         }
 
         {
             bpe.dropout(1.0);
-            auto r = tokenize(bpe, "unrelated");
+            TOKENIZE(r, bpe, "unrelated");
             assert(r.size() == 9);
-            assert(r[0] == ustr{"u"});
-            assert(r[1] == ustr{"n"});
-            assert(r[2] == ustr{"r"});
-            assert(r[3] == ustr{"e"});
-            assert(r[4] == ustr{"l"});
-            assert(r[5] == ustr{"a"});
-            assert(r[6] == ustr{"t"});
-            assert(r[7] == ustr{"e"});
-            assert(r[8] == ustr{"d"});
+            assert(r[0] == str_t{"u"});
+            assert(r[1] == str_t{"n"});
+            assert(r[2] == str_t{"r"});
+            assert(r[3] == str_t{"e"});
+            assert(r[4] == str_t{"l"});
+            assert(r[5] == str_t{"a"});
+            assert(r[6] == str_t{"t"});
+            assert(r[7] == str_t{"e"});
+            assert(r[8] == str_t{"d"});
         }
 
         {
             bpe.dropout(0.5);
-            auto r = tokenize(bpe, "unrelated");
+            TOKENIZE(r, bpe, "unrelated");
             assert(0 < r.size());
             assert(r.size() < 9);
         }
@@ -151,12 +153,15 @@ int main() {
     {
         berts::bpe bpe{"<unk>", 0.0, false};
         vocab_t vocab{{
-            {ustr{"a"}, 0},
-            {ustr{"b"}, 1},
-            {ustr{"c"}, 2},
-            {ustr{"ab"}, 3},
+            {str_t{"a"}, 0},
+            {str_t{"b"}, 1},
+            {str_t{"c"}, 2},
+            {str_t{"ab"}, 3},
         }};
-        merge_t merge{};
+        merge_t merge{{
+            {str_t{"a"}, str_t{"b"}},
+            {str_t{"a"}, str_t{"d"}},
+        }};
         bool ok = bpe.load_vocab(vocab, merge);
         assert(!ok);
     }
