@@ -59,6 +59,10 @@ struct ustr {
 
     std::strong_ordering operator<=>(const ustr &rhs) const;
 
+    ustr operator+(const ustr &rhs) const;
+    
+    ustr &operator+=(const ustr &rhs);
+    
     bool ok() const;
 
     void dispose();

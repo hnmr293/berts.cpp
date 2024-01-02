@@ -298,6 +298,45 @@ ustr &ustr::operator=(ustr &&in) noexcept {
     return *this;
 }
 
+ustr ustr::operator+(const ustr &rhs) const {
+    const auto lstr = impl->str;
+    const auto lsize = impl->size;
+    const auto rstr = rhs.impl->str;
+    const auto rsize = rhs.impl->size;
+    
+    ustr s{};
+    s.impl->alloc(lsize + rsize);
+    const auto sstr = s.impl->str;
+    
+    if (lsize != 0) {
+        std::copy(lstr, lstr + lsize, sstr);
+    }
+    if (rsize != 0) {
+        std::copy(rstr, rstr + rsize, sstr + lsize);
+    }
+    
+    return s;
+}
+
+ustr &ustr::operator+=(const ustr &rhs) {
+    if (rhs.impl->size == 0) {
+        return *this;
+    }
+    
+    if (impl->size == 0) {
+        *impl = *rhs.impl;
+        return *this;
+    }
+
+    // If rhs is *this, impl->alloc will break rhs's buffer
+    // so buffer must be copied first.
+    
+    ustr result = *this + rhs;
+    *this = result;
+    
+    return *this;
+}
+
 bool ustr::operator==(const ustr &rhs) const {
     if (impl->size != rhs.impl->size) {
         return false;
