@@ -1,6 +1,5 @@
 #include <cassert>
 #include <string>
-#include <unordered_map>
 #include <vector>
 #include "berts/models/bpe.hpp"
 #include "berts/models/unicode.hpp"
@@ -15,14 +14,17 @@ static inline std::vector<ustr> tokenize(const berts::bpe &bpe, const ustr &toke
 }
 
 int main() {
+    using vocab_t = berts::bpe::vocab_t;
+    using merge_t = berts::bpe::merge_t;
+    
     // unfused <unk>
     {
         berts::bpe bpe{"<unk>", 0.0, false};
-        std::unordered_map<ustr, size_t> vocab{{
+        vocab_t vocab{{
             {ustr{"a"}, 0},
             {ustr{"b"}, 1},
         }};
-        std::vector<std::pair<ustr, ustr>> merge{};
+        merge_t merge{};
         bool ok = bpe.load_vocab(vocab, merge);
         assert(ok);
 
@@ -52,11 +54,11 @@ int main() {
     // fused <unk>
     {
         berts::bpe bpe{"<unk>", 0.0, true};
-        std::unordered_map<ustr, size_t> vocab{{
+        vocab_t vocab{{
             {ustr{"a"}, 0},
             {ustr{"b"}, 1},
         }};
-        std::vector<std::pair<ustr, ustr>> merge{};
+        merge_t merge{};
         bool ok = bpe.load_vocab(vocab, merge);
         assert(ok);
 
@@ -85,7 +87,7 @@ int main() {
     // merge and dropout
     {
         berts::bpe bpe{"<unk>", 0.0};
-        std::unordered_map<ustr, size_t> vocab{{
+        vocab_t vocab{{
             {ustr{"u"}, 0},
             {ustr{"n"}, 1},
             {ustr{"r"}, 2},
@@ -103,7 +105,7 @@ int main() {
             {ustr{"related"}, 14},
             {ustr{"unrelated"}, 15},
         }};
-        std::vector<std::pair<ustr, ustr>> merge{{
+        merge_t merge{{
             {"r", "e"},
             {"a", "t"},
             {"e", "d"},
@@ -148,13 +150,13 @@ int main() {
     // out of vocabulary in merges
     {
         berts::bpe bpe{"<unk>", 0.0, false};
-        std::unordered_map<ustr, size_t> vocab{{
+        vocab_t vocab{{
             {ustr{"a"}, 0},
             {ustr{"b"}, 1},
             {ustr{"c"}, 2},
             {ustr{"ab"}, 3},
         }};
-        std::vector<std::pair<ustr, ustr>> merge{};
+        merge_t merge{};
         bool ok = bpe.load_vocab(vocab, merge);
         assert(!ok);
     }
