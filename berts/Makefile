@@ -250,10 +250,10 @@ test_bpe$(EXE_EXT):         tests/test_bpe.cpp  $(COMMON_HEADERS) $(STATIC_LIB)
 test_bpe_d$(EXE_EXT):       tests/test_bpe.cpp  $(COMMON_HEADERS) $(STATIC_LIB)
 	$(CXX) $(CXXFLAGS) $(filter-out %.h %.hpp,$^) $(STAITC_LIB_GGML_D) -o $@ $(LDFLAGS)
 
-test_roberta_tokenizer$(EXE_EXT):   tests/test_roberta.cpp $(COMMON_HEADERS) $(STATIC_LIB)
+test_roberta_tokenizer$(EXE_EXT):   tests/test_roberta_tokenizer.cpp $(COMMON_HEADERS) $(STATIC_LIB)
 	$(CXX) $(CXXFLAGS) $(filter-out %.h %.hpp,$^) $(STAITC_LIB_GGML)   -o $@ $(LDFLAGS)
 
-test_roberta_tokenizer_d$(EXE_EXT): tests/test_roberta.cpp $(COMMON_HEADERS) $(STATIC_LIB)
+test_roberta_tokenizer_d$(EXE_EXT): tests/test_roberta_tokenizer.cpp $(COMMON_HEADERS) $(STATIC_LIB)
 	$(CXX) $(CXXFLAGS) $(filter-out %.h %.hpp,$^) $(STAITC_LIB_GGML_D) -o $@ $(LDFLAGS)
 
 test_roberta$(EXE_EXT):     tests/test_roberta.cpp $(COMMON_HEADERS) $(STATIC_LIB)

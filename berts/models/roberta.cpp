@@ -54,8 +54,8 @@ bool vocab::init(berts_context *ctx, ggml_context *ggml, gguf_context *gguf) {
     (void)ctx;
     (void)ggml;
 
-    auto bos_id = get_token_id(gguf, BERTS_KEY_TOKENIZER_CLS_ID, "<s>");
-    auto eos_id = get_token_id(gguf, BERTS_KEY_TOKENIZER_CLS_ID, "</s>");
+    auto bos_id = get_token_id(gguf, BERTS_KEY_TOKENIZER_BOS_ID, "<s>");
+    auto eos_id = get_token_id(gguf, BERTS_KEY_TOKENIZER_EOS_ID, "</s>");
     auto cls_id = get_token_id(gguf, BERTS_KEY_TOKENIZER_CLS_ID, "<s>");
     auto mask_id = get_token_id(gguf, BERTS_KEY_TOKENIZER_MASK_ID, "<mask>");
     auto pad_id = get_token_id(gguf, BERTS_KEY_TOKENIZER_PAD_ID, "<pad>");
@@ -105,8 +105,8 @@ bool vocab::init(berts_context *ctx, ggml_context *ggml, gguf_context *gguf) {
         return false;
     }
 
-    special.bos = eos_id;
-    special.eos = bos_id;
+    special.bos = bos_id;
+    special.eos = eos_id;
     special.cls = cls_id;
     special.mask = mask_id;
     special.pad = pad_id;

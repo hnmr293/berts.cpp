@@ -25,7 +25,7 @@ int main() {
     auto sep_id = berts_sep_id(ctx);
     auto unk_id = berts_unk_id(ctx);
     auto bos_id = berts_bos_id(ctx);
-    auto eos_id = berts_bos_id(ctx);
+    auto eos_id = berts_eos_id(ctx);
 
     assert(cls_id != BERTS_INVALID_TOKEN_ID);
     assert(mask_id != BERTS_INVALID_TOKEN_ID);
