@@ -1,40 +1,101 @@
 #pragma once
 
 #include <memory>
+#include <type_traits>
 #include <vector>
+#include "berts/models/gguf.hpp"
 #include "berts/models/internal.hpp"
+#include "berts/models/keys.h"
+#include "berts/models/log.hpp"
 
 namespace berts::bert {
 
-struct vocab_base {
-    vocab_base() = default;
-    virtual ~vocab_base() = default;
+template <typename T>
+concept Vocab = requires(T &obj, berts_context *ctx, ggml_context *ggml, gguf_context *gguf, const std::string &str) {
+    new T{};
+
+    { obj.cls_id() } -> std::convertible_to<bert_token_t>;
+    { obj.mask_id() } -> std::convertible_to<bert_token_t>;
+    { obj.pad_id() } -> std::convertible_to<bert_token_t>;
+    { obj.sep_id() } -> std::convertible_to<bert_token_t>;
+    { obj.unk_id() } -> std::convertible_to<bert_token_t>;
+    { obj.bos_id() } -> std::convertible_to<bert_token_t>;
+    { obj.eos_id() } -> std::convertible_to<bert_token_t>;
+
+    { obj.id_to_token(bert_token_t{}) } -> std::convertible_to<std::string>;
+    { obj.token_to_id(str) } -> std::convertible_to<bert_token_t>;
+
+    { obj.add_token(str) } -> std::convertible_to<bool>;
+    { obj.has_token(str) } -> std::convertible_to<bool>;
 
     // called from class `base` after tokens have been added
-    virtual bool init(berts_context *ctx, ggml_context *ggml, gguf_context *gguf) = 0;
+    { obj.init(ctx, ggml, gguf) } -> std::convertible_to<bool>;
+    obj.clear();
 
-    virtual std::string id_to_token(bert_token_t id) const noexcept = 0;
-    virtual bert_token_t token_to_id(const std::string &token) const noexcept = 0;
-    virtual bool add_token(const std::string &token) = 0;
-    virtual bool has_token(const std::string &token) const noexcept = 0;
-    virtual void clear() = 0;
+    // implemented in vocab_base
+    { obj.cls_token() } -> std::convertible_to<std::string>;
+    { obj.mask_token() } -> std::convertible_to<std::string>;
+    { obj.pad_token() } -> std::convertible_to<std::string>;
+    { obj.sep_token() } -> std::convertible_to<std::string>;
+    { obj.unk_token() } -> std::convertible_to<std::string>;
+    { obj.bos_token() } -> std::convertible_to<std::string>;
+    { obj.eos_token() } -> std::convertible_to<std::string>;
+};
 
-    virtual bert_token_t cls_id() const noexcept = 0;
-    virtual bert_token_t mask_id() const noexcept = 0;
-    virtual bert_token_t pad_id() const noexcept = 0;
-    virtual bert_token_t sep_id() const noexcept = 0;
-    virtual bert_token_t unk_id() const noexcept = 0;
-    virtual bert_token_t bos_id() const noexcept = 0;
-    virtual bert_token_t eos_id() const noexcept = 0;
-    bert_token_t get_token_id(const gguf_context *gguf, const char *key, const char *alternate1, const char *alternate2 = nullptr);
+template <typename Self>
+struct vocab_base {
+    using self_type = Self;
+    using base_type = vocab_base;
 
-    std::string cls_token() const noexcept { return id_to_token(cls_id()); };
-    std::string mask_token() const noexcept { return id_to_token(mask_id()); };
-    std::string pad_token() const noexcept { return id_to_token(pad_id()); };
-    std::string sep_token() const noexcept { return id_to_token(sep_id()); };
-    std::string unk_token() const noexcept { return id_to_token(unk_id()); };
-    std::string bos_token() const noexcept { return id_to_token(bos_id()); };
-    std::string eos_token() const noexcept { return id_to_token(eos_id()); };
+    bert_token_t get_token_id(const gguf_context *gguf, const char *key, const char *alternate1, const char *alternate2 = nullptr) {
+        const char *failed_key = nullptr;
+
+        auto id = gguf::gguf_u32(gguf, key, BERTS_INVALID_TOKEN_ID);
+        if (id == BERTS_INVALID_TOKEN_ID) {
+            if (!alternate1) {
+                failed_key = key;
+                goto FAIL;
+            }
+
+            log::warn("{} is not defined; use {} instead", key, alternate1);
+            id = as_self()->token_to_id(alternate1);
+
+            if (id == BERTS_INVALID_TOKEN_ID) {
+                if (!alternate2) {
+                    failed_key = alternate1;
+                    goto FAIL;
+                }
+
+                log::warn("{} is not defined; use {} instead", alternate1, alternate2);
+                id = as_self()->token_to_id(alternate2);
+
+                if (id == BERTS_INVALID_TOKEN_ID) {
+                    failed_key = alternate2;
+                    goto FAIL;
+                }
+            }
+        }
+
+        return id;
+
+    FAIL:
+        if (failed_key) {
+            log::error("{} does not exist in vocab", failed_key);
+        }
+        return BERTS_INVALID_TOKEN_ID;
+    }
+
+    std::string cls_token() const noexcept { return as_self()->id_to_token(as_self()->cls_id()); };
+    std::string mask_token() const noexcept { return as_self()->id_to_token(as_self()->mask_id()); };
+    std::string pad_token() const noexcept { return as_self()->id_to_token(as_self()->pad_id()); };
+    std::string sep_token() const noexcept { return as_self()->id_to_token(as_self()->sep_id()); };
+    std::string unk_token() const noexcept { return as_self()->id_to_token(as_self()->unk_id()); };
+    std::string bos_token() const noexcept { return as_self()->id_to_token(as_self()->bos_id()); };
+    std::string eos_token() const noexcept { return as_self()->id_to_token(as_self()->eos_id()); };
+
+  private:
+    self_type *as_self() noexcept { return static_cast<self_type *>(this); }
+    const self_type *as_self() const noexcept { return static_cast<const self_type *>(this); }
 };
 
 struct transformer_block {
@@ -67,7 +128,10 @@ struct transformer_block {
     ggml_tensor *ln_out_b = nullptr;
 };
 
+template <Vocab VocabType>
 struct base : public internal::model {
+    using vocab_t = VocabType;
+
     // weights
     ggml_tensor *token_embedding = nullptr;
     ggml_tensor *segment_embedding = nullptr;
@@ -79,17 +143,110 @@ struct base : public internal::model {
     ggml_tensor *pool_b = nullptr;
 
     // tokenizer
-    std::unique_ptr<vocab_base> vocab;
+    std::unique_ptr<vocab_t> vocab;
 
-    base(ggml_type type, vocab_base *&&vocab)
+    base(ggml_type type)
         : internal::model(type)
-        , vocab(vocab) {}
+        , vocab(new vocab_t{}) {}
 
-    ~base() override;
+    ~base() override = default;
 
-    bool init_vocab(berts_context *ctx) override;
+    bool init_vocab(berts_context *ctx) override {
+        using namespace berts::internal;
 
-    bool init_weight(berts_context *ctx) override;
+        log::info("loading vocab");
+
+        if (!check_ctx(ctx)) {
+            return false;
+        }
+
+        auto ggml = get_ggml_context(ctx);
+        auto gguf = get_gguf_context(ctx);
+
+        auto vocab_size = ggml_get_tensor(ggml, BERTS_KEY_ALL_VOCAB_SIZE);
+        auto vocab_data = ggml_get_tensor(ggml, BERTS_KEY_ALL_VOCAB_DATA);
+
+        if (!vocab_size) {
+            log::error("key {} is not found", BERTS_KEY_ALL_VOCAB_SIZE);
+            return false;
+        }
+
+        if (!vocab_data) {
+            log::error("key {} is not found", BERTS_KEY_ALL_VOCAB_DATA);
+            return false;
+        }
+
+        if (vocab_size->n_dims != 1 || vocab_data->n_dims != 1) {
+            log::error("invalid shape: vocab_size={}, vocab_data={}", vocab_size->n_dims, vocab_data->n_dims);
+            return false;
+        }
+
+        if (vocab_size->type != GGML_TYPE_I8) {
+            log::error("invalid type of vocab_size: {}", (int)vocab_size->type);
+            return false;
+        }
+
+        if (vocab_data->type != GGML_TYPE_I8) {
+            log::error("invalid type of vocab_data: {}", (int)vocab_data->type);
+            return false;
+        }
+
+        log::debug("  vocab count: {}", vocab_size->ne[0]);
+
+        const int64_t vocab_count = vocab_size->ne[0];
+        auto token_lengths = static_cast<const uint8_t *>(vocab_size->data);
+        const auto data = static_cast<const char *>(vocab_data->data);
+        ptrdiff_t p = 0;
+        for (int64_t token_id = 0; token_id < vocab_count; ++token_id) {
+            size_t token_len = (size_t)token_lengths[token_id];
+            if (token_len == 0) {
+                token_len = 256;
+            }
+            std::string token{&data[p], token_len};
+            p += token_len;
+
+            if (!add_token(token)) {
+                log::error("failed to add token: {}", token);
+                vocab->clear();
+                return false;
+            }
+        }
+
+        if (p != vocab_data->ne[0]) {
+            log::error("something wrong");
+            vocab->clear();
+            return false;
+        }
+
+        if (!vocab->init(ctx, ggml, gguf)) {
+            log::error("fail to build vocab");
+            vocab->clear();
+            return false;
+        }
+
+        log::info("finish loading vocab");
+        return true;
+    }
+
+    bool init_weight(berts_context *ctx) override {
+        using namespace berts::internal;
+
+        log::info("initializing weights");
+
+        if (!check_ctx(ctx)) {
+            return false;
+        }
+
+        auto ggml = get_ggml_context(ctx);
+        auto gguf = get_gguf_context(ctx);
+
+        if (!init_weight(ctx, ggml, gguf)) {
+            return false;
+        }
+
+        log::info("finish loading vocab");
+        return true;
+    }
 
     // called from init_weight(berts_context *ctx)
     virtual bool init_weight(berts_context *ctx, ggml_context *ggml, gguf_context *gguf) = 0;

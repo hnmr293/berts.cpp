@@ -9,7 +9,6 @@
 #include <unordered_set>
 #include "berts/models/gguf.hpp"
 #include "berts/models/keys.h"
-#include "berts/models/trie.hpp"
 #include "berts/models/unicode.hpp"
 #include "berts/models/utils.hpp"
 
@@ -18,192 +17,132 @@ using namespace berts::unicode;
 namespace uni = berts::unicode;
 using trie_t = berts::trie::trie;
 
-// std::unique_resource<trie::trie>
-namespace std {
-
-template <>
-struct default_delete<trie_t> {
-    void operator()(trie_t *trie) const noexcept {
-        if (trie) berts::trie::free_trie(trie);
-    }
-};
-
-} // namespace std
-
 namespace berts::bert {
 
 //
 // vocab
 //
 
-struct tokenizer_info {
-    // ignored, always normalized with NFC
-    bool normalize;
+static inline tokenizer_info tokenizer_info_basic() {
+    return {
+        .normalize = true,
+        .remove_replacement_char = true,
+        .remove_null_char = true,
+        .remove_control_char = true,
+        .normalize_whitespaces = true,
+        .add_space_around_cjk_char = true,
+        .do_lower_case = true,
+        .strip_accents = true,
+        .split_on_punc = true,
+    };
+}
 
-    // remove U+FFFD
-    bool remove_replacement_char;
+static inline tokenizer_info tokenizer_info_no_basic() {
+    return {
+        .normalize = true,
+        .remove_replacement_char = false,
+        .remove_null_char = false,
+        .remove_control_char = false,
+        .normalize_whitespaces = true,
+        .add_space_around_cjk_char = false,
+        .do_lower_case = false,
+        .strip_accents = false,
+        .split_on_punc = false,
+    };
+}
 
-    // remove U+0000
-    bool remove_null_char;
+vocab::vocab()
+    : trie(nullptr) {
+    special.cls = BERTS_INVALID_TOKEN_ID;
+    special.mask = BERTS_INVALID_TOKEN_ID;
+    special.pad = BERTS_INVALID_TOKEN_ID;
+    special.sep = BERTS_INVALID_TOKEN_ID;
+    special.unk = BERTS_INVALID_TOKEN_ID;
+}
 
-    // remove control chars (category C*)
-    bool remove_control_char;
+vocab::vocab(size_t n)
+    : vocab() {
+    id_to_token_.reserve(n);
+    token_to_id_.reserve(n);
+}
 
-    // convert all whitespaces to a normal space (U+0020)
-    bool normalize_whitespaces;
+vocab::~vocab() = default;
 
-    // add space around all CJK characters
-    bool add_space_around_cjk_char;
+bool vocab::build_trie() {
+    trie.reset(trie::build_trie(id_to_token_));
+    return trie && id_to_token_.size();
+}
 
-    // force input to be lowercase letters
-    bool do_lower_case;
-
-    // remove all accent chars
-    bool strip_accents;
-
-    // split words at a punctuation
-    bool split_on_punc;
-
-    static tokenizer_info basic() {
-        return {
-            .normalize = true,
-            .remove_replacement_char = true,
-            .remove_null_char = true,
-            .remove_control_char = true,
-            .normalize_whitespaces = true,
-            .add_space_around_cjk_char = true,
-            .do_lower_case = true,
-            .strip_accents = true,
-            .split_on_punc = true,
-        };
+std::string vocab::id_to_token(bert_token_t token_id) const noexcept {
+    if (id_to_token_.size() <= token_id) {
+        log::error("token id {} is not found (max={})", token_id, id_to_token_.size());
+        return "";
     }
-
-    static tokenizer_info no_basic() {
-        return {
-            .normalize = true,
-            .remove_replacement_char = false,
-            .remove_null_char = false,
-            .remove_control_char = false,
-            .normalize_whitespaces = true,
-            .add_space_around_cjk_char = false,
-            .do_lower_case = false,
-            .strip_accents = false,
-            .split_on_punc = false,
-        };
-    }
+    return id_to_token_[token_id];
 };
 
-struct special_tokens {
-    bert_token_t cls;
-    bert_token_t mask;
-    bert_token_t pad;
-    bert_token_t sep;
-    bert_token_t unk;
-};
-
-struct bert_vocab : public vocab_base {
-    tokenizer_info cond;
-    special_tokens special;
-    std::unique_ptr<trie_t> trie;
-    std::vector<std::string> id_to_token_;
-    std::unordered_map<std::string, bert_token_t> token_to_id_;
-
-    bert_vocab()
-        : trie(nullptr) {
-        special.cls = BERTS_INVALID_TOKEN_ID;
-        special.mask = BERTS_INVALID_TOKEN_ID;
-        special.pad = BERTS_INVALID_TOKEN_ID;
-        special.sep = BERTS_INVALID_TOKEN_ID;
-        special.unk = BERTS_INVALID_TOKEN_ID;
-    }
-
-    bert_vocab(size_t n)
-        : bert_vocab() {
-        id_to_token_.reserve(n);
-        token_to_id_.reserve(n);
-    }
-
-    ~bert_vocab() override = default;
-
-    bool build_trie() {
-        trie.reset(trie::build_trie(id_to_token_));
-        return trie && id_to_token_.size();
-        ;
-    }
-
-    std::string id_to_token(bert_token_t token_id) const noexcept override {
-        if (id_to_token_.size() <= token_id) {
-            log::error("token id {} is not found (max={})", token_id, id_to_token_.size());
-            return "";
-        }
-        return id_to_token_[token_id];
-    };
-
-    bert_token_t token_to_id(const std::string &token) const noexcept override {
-        const auto p = token_to_id_.find(token);
-        if (p == token_to_id_.end()) {
-            log::error("token {} is not found", token);
-            return BERTS_INVALID_TOKEN_ID;
-        }
-        return p->second;
-    };
-
-    bool add_token(const std::string &token) override {
-        if (has_token(token)) {
-            log::warn("  token {} already exists", token);
-            return false;
-        }
-
-        const auto next_id = static_cast<bert_token_t>(id_to_token_.size());
-        id_to_token_.push_back(token);
-        token_to_id_[token] = next_id;
-        // log::debug("  token {}: {}", next_id, token);
-        return true;
-    };
-
-    bool has_token(const std::string &token) const noexcept override {
-        const auto p = token_to_id_.find(token);
-        return p != token_to_id_.end();
-    };
-
-    void clear() override {
-        id_to_token_.clear();
-        token_to_id_.clear();
-        trie.reset();
-    }
-
-    bert_token_t cls_id() const noexcept override {
-        return special.cls;
-    }
-
-    bert_token_t mask_id() const noexcept override {
-        return special.mask;
-    }
-
-    bert_token_t pad_id() const noexcept override {
-        return special.pad;
-    }
-
-    bert_token_t sep_id() const noexcept override {
-        return special.sep;
-    }
-
-    bert_token_t unk_id() const noexcept override {
-        return special.unk;
-    }
-
-    bert_token_t bos_id() const noexcept override {
+bert_token_t vocab::token_to_id(const std::string &token) const noexcept {
+    const auto p = token_to_id_.find(token);
+    if (p == token_to_id_.end()) {
+        log::error("token {} is not found", token);
         return BERTS_INVALID_TOKEN_ID;
     }
-
-    bert_token_t eos_id() const noexcept override {
-        return BERTS_INVALID_TOKEN_ID;
-    }
-
-    bool init(berts_context *ctx, ggml_context *ggml, gguf_context *gguf) override;
+    return p->second;
 };
 
-bool bert_vocab::init(berts_context *ctx, ggml_context *ggml, gguf_context *gguf) {
+bool vocab::add_token(const std::string &token) {
+    if (has_token(token)) {
+        log::warn("  token {} already exists", token);
+        return false;
+    }
+
+    const auto next_id = static_cast<bert_token_t>(id_to_token_.size());
+    id_to_token_.push_back(token);
+    token_to_id_[token] = next_id;
+    // log::debug("  token {}: {}", next_id, token);
+    return true;
+};
+
+bool vocab::has_token(const std::string &token) const noexcept {
+    const auto p = token_to_id_.find(token);
+    return p != token_to_id_.end();
+};
+
+void vocab::clear() {
+    id_to_token_.clear();
+    token_to_id_.clear();
+    trie.reset();
+}
+
+bert_token_t vocab::cls_id() const noexcept {
+    return special.cls;
+}
+
+bert_token_t vocab::mask_id() const noexcept {
+    return special.mask;
+}
+
+bert_token_t vocab::pad_id() const noexcept {
+    return special.pad;
+}
+
+bert_token_t vocab::sep_id() const noexcept {
+    return special.sep;
+}
+
+bert_token_t vocab::unk_id() const noexcept {
+    return special.unk;
+}
+
+bert_token_t vocab::bos_id() const noexcept {
+    return BERTS_INVALID_TOKEN_ID;
+}
+
+bert_token_t vocab::eos_id() const noexcept {
+    return BERTS_INVALID_TOKEN_ID;
+}
+
+bool vocab::init(berts_context *ctx, ggml_context *ggml, gguf_context *gguf) {
     (void)ctx;
     (void)ggml;
 
@@ -214,16 +153,11 @@ bool bert_vocab::init(berts_context *ctx, ggml_context *ggml, gguf_context *gguf
     auto unk_id = get_token_id(gguf, BERTS_KEY_TOKENIZER_UNK_ID, "[UNK]", "<unk>");
 
     log::when(BERTS_LOG_INFO, [=, this]() {
-        auto cls = id_to_token(cls_id);
-        auto mask = id_to_token(mask_id);
-        auto pad = id_to_token(pad_id);
-        auto sep = id_to_token(sep_id);
-        auto unk = id_to_token(unk_id);
-        log::info("  cls_id:  {} ({})", cls_id, cls);
-        log::info("  mask_id: {} ({})", mask_id, mask);
-        log::info("  pad_id:  {} ({})", pad_id, pad);
-        log::info("  sep_id:  {} ({})", sep_id, sep);
-        log::info("  unk_id:  {} ({})", unk_id, unk);
+        log::info("  cls_id:  {} ({})", cls_id, cls_token());
+        log::info("  mask_id: {} ({})", mask_id, mask_token());
+        log::info("  pad_id:  {} ({})", pad_id, pad_token());
+        log::info("  sep_id:  {} ({})", sep_id, sep_token());
+        log::info("  unk_id:  {} ({})", unk_id, unk_token());
     });
 
     if (cls_id == BERTS_INVALID_TOKEN_ID ||
@@ -265,8 +199,8 @@ bool bert_vocab::init(berts_context *ctx, ggml_context *ggml, gguf_context *gguf
     */
 
     cond = do_basic_tokenize
-               ? tokenizer_info::basic()
-               : tokenizer_info::no_basic();
+               ? tokenizer_info_basic()
+               : tokenizer_info_no_basic();
 
     cond.do_lower_case = do_lower_case;
     cond.add_space_around_cjk_char = tokenize_chinese_chars;
@@ -311,7 +245,7 @@ bool bert_vocab::init(berts_context *ctx, ggml_context *ggml, gguf_context *gguf
 //
 
 model::model(ggml_type type)
-    : base(type, new bert_vocab{}) {}
+    : base(type) {}
 
 //
 // model::init_weight
@@ -629,7 +563,7 @@ static bool basic_tokenize(const std::string &text,
     return true;
 }
 
-static bool wordpiece_tokenize(const bert_vocab &vocab,
+static bool wordpiece_tokenize(const vocab &vocab,
                                const std::vector<ustr> &words,
                                std::vector<bert_token_t> &result) {
     log::debug("start wordpiece_tokenize");
@@ -671,7 +605,7 @@ static bool wordpiece_tokenize(const bert_vocab &vocab,
     return true;
 }
 
-static bool tokenize(const bert_vocab &vocab,
+static bool tokenize(const vocab &vocab,
                      const std::string &text,
                      const std::unordered_set<std::string> &never_split,
                      std::vector<bert_token_t> &result) {
@@ -706,7 +640,7 @@ bool model::tokenize(const berts_context *ctx, const std::string &text, std::vec
 
     std::unordered_set<std::string> never_split{cls, mask, pad, sep, unk};
 
-    return bert::tokenize(*reinterpret_cast<bert_vocab *>(vocab.get()), text, never_split, out);
+    return bert::tokenize(*vocab, text, never_split, out);
 }
 
 //

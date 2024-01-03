@@ -175,9 +175,6 @@ quantize.o: models/quantize.cpp $(COMMON_HEADERS)
 internal.o: models/internal.cpp models/internal.hpp $(COMMON_HEADERS)
 	$(CXX) $(CXXFLAGS) -c $< -o $@
 
-bert_base.o: models/bert_base.cpp models/bert_base.cpp $(COMMON_HEADERS)
-	$(CXX) $(CXXFLAGS) -c $< -o $@
-
 trie.o: models/trie.cpp models/trie.hpp $(COMMON_HEADERS)
 	$(CXX) $(CXXFLAGS) -c $< -o $@
 
@@ -197,7 +194,7 @@ clean:
 	rm -rf *.o *.lib *.so *.dll *.exe
 	rm -f ../lib/libberts.a ../lib/berts.a ../lib/libberts.lib ../lib/berts.lib ../lib/libberts.so ../lib/berts.so ../lib/libberts.dll ../lib/berts.dll
 
-OBJS += utils.o berts.o gguf.o bert.o quantize.o internal.o bert_base.o trie.o unicode.o log.o bpe.o 
+OBJS += utils.o berts.o gguf.o bert.o quantize.o internal.o trie.o unicode.o log.o bpe.o 
 
 $(STATIC_LIB): $(OBJS)
 	ar rcs $@ $^
