@@ -42,7 +42,7 @@ EXAMPLES = \
 	quant
 
 TESTS = \
-	test_tokenizer \
+	test_bert_tokenizer \
 	test_unicode \
 	test_trie \
 	test_bert \
@@ -215,10 +215,10 @@ quant_d$(EXE_EXT): examples/quant.cpp $(COMMON_HEADERS) $(STATIC_LIB)
 # tests
 #
 
-test_tokenizer$(EXE_EXT):   tests/test_tokenizer.cpp $(COMMON_HEADERS) $(STATIC_LIB)
+test_bert_tokenizer$(EXE_EXT):   tests/test_bert_tokenizer.cpp $(COMMON_HEADERS) $(STATIC_LIB)
 	$(CXX) $(CXXFLAGS) $(filter-out %.h %.hpp,$^) $(STAITC_LIB_GGML)   -o $@ $(LDFLAGS)
 
-test_tokenizer_d$(EXE_EXT): tests/test_tokenizer.cpp $(COMMON_HEADERS) $(STATIC_LIB)
+test_bert_tokenizer_d$(EXE_EXT): tests/test_bert_tokenizer.cpp $(COMMON_HEADERS) $(STATIC_LIB)
 	$(CXX) $(CXXFLAGS) $(filter-out %.h %.hpp,$^) $(STAITC_LIB_GGML_D) -o $@ $(LDFLAGS)
 
 test_unicode$(EXE_EXT):     tests/test_unicode.cpp $(COMMON_HEADERS) $(STATIC_LIB)
