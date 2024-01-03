@@ -64,8 +64,9 @@ berts_context *berts_load_from_file(const char *path) {
 
 bert_type berts_arch(const berts_context *ctx) {
     internal::hparams hparams{};
-    internal::get_hparams(ctx, &hparams);
-    return hparams.architecture;
+    return internal::get_hparams(ctx, &hparams)
+               ? hparams.architecture
+               : BERTS_TYPE_UNKNOWN;
 }
 
 //

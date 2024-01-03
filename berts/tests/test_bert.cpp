@@ -11,6 +11,7 @@ int main() {
     const char *model_path = ".gguf/bert-base-cased-f32.gguf";
     auto ctx = berts_load_from_file(model_path);
     assert(ctx);
+    assert(berts_arch(ctx) == BERTS_TYPE_BERT);
 
     const std::string text1 = "Hi, I am [MASK] man. How are you?";
     size_t size = text1.size();

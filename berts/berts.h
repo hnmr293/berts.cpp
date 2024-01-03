@@ -88,6 +88,7 @@ enum bert_type {
     BERTS_TYPE_BERT,
     BERTS_TYPE_ROBERTA,
     // BERTS_TYPE_DEBERTA,
+    BERTS_TYPE_UNKNOWN,
 };
 
 BERTS_API bert_type berts_arch(const berts_context *ctx);
