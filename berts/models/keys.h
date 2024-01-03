@@ -64,7 +64,7 @@
 #define BERTS_KEY_TOKENIZER_BOS_ID "berts.bos_id"
 
 // type: u32 *optional, defaults to id of sep token
-#define BERTS_KEY_TOKENIZER_BOS_ID "berts.eos_id"
+#define BERTS_KEY_TOKENIZER_EOS_ID "berts.eos_id"
 
 // type: bool *optional, defaults to `true`
 #define BERTS_KEY_TOKENIZER_DO_LOWER_CASE "berts.do_lower_case"
