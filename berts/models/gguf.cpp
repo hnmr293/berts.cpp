@@ -211,7 +211,7 @@ berts_context *load_from_file(const std::string &path) {
     }
 
     internal::hparams hparams{};
-    hparams.architecture = static_cast<internal::bert_type>(gguf_u32(gguf, BERTS_KEY_HPARAM_BERT_TYPE));
+    hparams.architecture = static_cast<bert_type>(gguf_u32(gguf, BERTS_KEY_HPARAM_BERT_TYPE));
     hparams.vocab_size = gguf_u32(gguf, BERTS_KEY_HPARAM_VOCAB_SIZE);
     hparams.hidden_dim = gguf_u32(gguf, BERTS_KEY_HPARAM_HIDDEN_DIM);
     hparams.n_layers = gguf_u32(gguf, BERTS_KEY_HPARAM_N_LAYERS);
@@ -268,7 +268,7 @@ berts_context *load_from_file(const std::string &path) {
 
     // create model
     switch (hparams.architecture) {
-        using enum internal::bert_type;
+        using enum bert_type;
     case BERTS_TYPE_BERT:
         // ok
         model = new bert::model(type);

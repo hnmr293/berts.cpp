@@ -1,4 +1,6 @@
 #include "berts/berts.h"
+
+#include <cstring>
 #include "berts/berts.hpp"
 #include "berts/models/gguf.hpp"
 #include "berts/models/internal.hpp"
@@ -60,6 +62,12 @@ berts_context *berts_load_from_file(const char *path) {
 //     return gguf::load_from_memory(const uint8_t *data, size_t data_len);
 // }
 
+bert_type berts_arch(const berts_context *ctx) {
+    internal::hparams hparams{};
+    internal::get_hparams(ctx, &hparams);
+    return hparams.architecture;
+}
+
 //
 // tokenizer
 //
@@ -74,7 +82,11 @@ static inline bool check_model(const berts_context *ctx) {
     return true;
 }
 
-#define BERTS_CHECK_MODEL_OR(default_) if (!check_model(ctx)) { return (default_); } auto &model = internal::get_model(ctx);
+#define BERTS_CHECK_MODEL_OR(default_) \
+    if (!check_model(ctx)) {           \
+        return (default_);             \
+    }                                  \
+    auto &model = internal::get_model(ctx);
 
 bert_token_t berts_cls_id(const berts_context *ctx) {
     BERTS_CHECK_MODEL_OR(BERTS_INVALID_TOKEN_ID);
@@ -125,7 +137,7 @@ bool berts_tokenize(const berts_context *ctx,
                     bert_token_t *out,
                     size_t *out_len) {
     BERTS_CHECK_MODEL_OR(false);
-    
+
     std::vector<bert_token_t> ids;
 
     auto cls_id = model.cls_id();
@@ -189,7 +201,7 @@ bool berts_eval(berts_context *ctx,
                 float *out,
                 size_t *out_count) {
     BERTS_CHECK_MODEL_OR(false);
-    
+
     if (!cond) {
         return false;
     }

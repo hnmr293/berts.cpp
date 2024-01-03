@@ -11,13 +11,11 @@ namespace berts::internal {
 // models
 //
 
-enum bert_type {
-    BERTS_TYPE_BERT,
-    // BERTS_TYPE_DEBERTA,
-};
-
 enum hidden_act {
     BERTS_HIDDEN_ACT_GELU,
+    BERTS_HIDDEN_ACT_RELU,
+    BERTS_HIDDEN_ACT_SILU,
+    BERTS_HIDDEN_ACT_GELU_NEW,
 };
 
 struct hparams {

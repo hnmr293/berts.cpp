@@ -84,6 +84,14 @@ BERTS_API berts_context *berts_load_from_file(const char *path);
 
 // BERTS_API berts_context *berts_load_from_memory(const uint8_t *data, size_t data_len);
 
+enum bert_type {
+    BERTS_TYPE_BERT,
+    BERTS_TYPE_ROBERTA,
+    // BERTS_TYPE_DEBERTA,
+};
+
+BERTS_API bert_type berts_arch(const berts_context *ctx);
+
 //
 // tokenizer
 //
