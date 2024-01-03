@@ -7,6 +7,7 @@
 #include <queue>
 #include <random>
 #include <ranges>
+#include <sstream>
 #include <type_traits>
 #include "berts/models/log.hpp"
 
@@ -142,12 +143,22 @@ bool bpe::load_vocab(const vocab_t &vocab, const std::vector<token_id_pair> &mer
     reserve(this->merge, merge.size());
 
     // unordered_map::merge does not receive "const" argument.
-    log::debug("  vocab");
     for (const auto &[str, id] : vocab) {
         this->vocab.insert_or_assign(str, id);
         this->vocab_r.insert_or_assign(id, str);
-        log::debug("    {}: {}", id, str.encode());
     }
+    
+    log::when(BERTS_LOG_DEBUG, [this, &vocab]() {
+        log::debug("  vocab");
+        std::vector<bert_token_t> ids{};
+        for (const auto &[str, id] : vocab) {
+            ids.push_back(id);
+        }
+        std::sort(ids.begin(), ids.end());
+        for (auto &&id : ids) {
+            log::debug("    {:>3}: {}", id, this->vocab_r[id].encode());
+        }
+    });
 
     log::debug("  merge");
     const auto prefix_len = continueing_subword_prefix().codepoints();
@@ -189,58 +200,26 @@ bool bpe::load_vocab(const vocab_t &vocab, const std::vector<token_id_pair> &mer
 }
 
 bool bpe::load_vocab(const vocab_t &vocab, const std::vector<token_pair> &merge) {
-    log::debug("loading BPE vocab");
-
-    reserve(this->vocab, vocab.size());
-    reserve(this->vocab_r, vocab.size());
-    reserve(this->merge, merge.size());
-
-    // unordered_map::merge does not receive "const" argument.
-    log::debug("  vocab");
-    for (const auto &[str, id] : vocab) {
-        this->vocab.insert_or_assign(str, id);
-        this->vocab_r.insert_or_assign(id, str);
-        log::debug("    {}: {}", id, str.encode());
-    }
-
-    log::debug("  merge");
-    const auto prefix_len = continueing_subword_prefix().codepoints();
-    const size_t rank_start = this->merge.size();
-    for (const auto [index, pair] : merge | std::views::enumerate) {
-        const auto rank = rank_start + index;
-        const auto [token0, token1] = pair;
-
-        bert_token_t id0, id1;
-        if (!token_to_id(token0, id0)) {
+    std::vector<token_id_pair> merge_{};
+    for (const auto &[token0, token1] : merge) {
+        // this->vocab is not constructed yet,
+        // so we cannot call this->token_to_id.
+        
+        auto it0 = vocab.find(token0);
+        if (it0 == vocab.end()) {
             log::error("token {} is not found in vocab", token0.encode());
             return false;
         }
-
-        if (!token_to_id(token1, id1)) {
+        
+        auto it1 = vocab.find(token1);
+        if (it1 == vocab.end()) {
             log::error("token {} is not found in vocab", token1.encode());
             return false;
         }
-
-        str_t new_token{};
-        if (prefix_len == 0) {
-            new_token = token0 + token1;
-        } else {
-            new_token = token0 + slice(token1, prefix_len);
-        }
-
-        bert_token_t new_token_id;
-        if (!token_to_id(new_token, new_token_id)) {
-            log::error("merged token {} is not found in vocab", new_token.encode());
-            return false;
-        }
-
-        this->merge.insert_or_assign(std::pair{id0, id1}, std::pair{rank, new_token_id});
-        log::debug("    rank={}, [{}({}), {}({})] -> {}({})", rank, token0.encode(), id0, token1.encode(), id1, new_token.encode(), new_token_id);
+        
+        merge_.emplace_back(it0->second, it1->second);
     }
-
-    log::debug("finish loading BPE vocab");
-
-    return true;
+    return load_vocab(vocab, merge_);
 }
 
 bool bpe::tokenize(const str_t &text, tokenized_t &result) const {
@@ -252,7 +231,10 @@ bool bpe::tokenize(const str_t &text, tokenized_t &result, cache_t &cache) const
 }
 
 static bool tokenize_bpe(const bpe &bpe, const bpe::str_t &text, bpe::tokenized_t &result, bpe::cache_t *cache) {
-    log::debug("start BPE tokenization");
+    log::when(BERTS_LOG_DEBUG, [&text]() {
+        log::debug("start BPE tokenization");
+        log::debug("  text = {}", text.encode());
+    });
 
     if (text.empty()) return true;
 
@@ -306,6 +288,19 @@ static bool tokenize_bpe(const bpe &bpe, const bpe::str_t &text, bpe::tokenized_
 }
 
 static bool merge_all(const bpe &bpe, word_t &word) {
+    log::when(BERTS_LOG_DEBUG, [&word]() {
+        std::stringstream ss{};
+        ss << "(";
+        for (const auto &sym : word.symbols) {
+            ss << sym.id << " ";
+        }
+        if (!word.symbols.empty()) {
+            ss.seekp(-1, ss.cur); // remove last space
+        }
+        ss << ")";
+        log::debug("  id = {}", ss.str());
+    });
+
     //
     // init priority queue
     //
@@ -375,6 +370,7 @@ static bool merge_all(const bpe &bpe, word_t &word) {
         }
 
         // Otherwise, let's merge
+        log::debug("  * merge ({}, {}) -> {}", sym.id, right.id, top.new_id);
         sym.merge_with(right, top.new_id);
 
         // Tag the right part as removed
