@@ -1,5 +1,6 @@
 #include "berts/models/bert_base.hpp"
 
+#include "berts/models/gguf.hpp"
 #include "berts/models/internal.hpp"
 #include "berts/models/keys.h"
 #include "berts/models/log.hpp"
@@ -7,6 +8,48 @@
 using namespace berts::internal;
 
 namespace berts::bert {
+
+//
+// vocab_base::get_token_id
+//
+
+bert_token_t vocab_base::get_token_id(const gguf_context *gguf, const char *key, const char *alternate1, const char *alternate2) {
+    const char *failed_key = nullptr;
+
+    auto id = gguf::gguf_u32(gguf, key, BERTS_INVALID_TOKEN_ID);
+    if (id == BERTS_INVALID_TOKEN_ID) {
+        if (!alternate1) {
+            failed_key = key;
+            goto FAIL;
+        }
+
+        log::warn("{} is not defined; use {} instead", key, alternate1);
+        id = token_to_id(alternate1);
+
+        if (id == BERTS_INVALID_TOKEN_ID) {
+            if (!alternate2) {
+                failed_key = alternate1;
+                goto FAIL;
+            }
+
+            log::warn("{} is not defined; use {} instead", alternate1, alternate2);
+            id = token_to_id(alternate2);
+
+            if (id == BERTS_INVALID_TOKEN_ID) {
+                failed_key = alternate2;
+                goto FAIL;
+            }
+        }
+    }
+
+    return id;
+
+FAIL:
+    if (failed_key) {
+        log::error("{} does not exist in vocab", failed_key);
+    }
+    return BERTS_INVALID_TOKEN_ID;
+}
 
 //
 // base::~base
@@ -102,7 +145,7 @@ bool base::init_weight(berts_context *ctx) {
 
     auto ggml = get_ggml_context(ctx);
     auto gguf = get_gguf_context(ctx);
-    
+
     if (!init_weight(ctx, ggml, gguf)) {
         return false;
     }

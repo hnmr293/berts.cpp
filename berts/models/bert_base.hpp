@@ -26,6 +26,7 @@ struct vocab_base {
     virtual bert_token_t unk_id() const noexcept = 0;
     virtual bert_token_t bos_id() const noexcept = 0;
     virtual bert_token_t eos_id() const noexcept = 0;
+    bert_token_t get_token_id(const gguf_context *gguf, const char *key, const char *alternate1, const char *alternate2 = nullptr);
 
     std::string cls_token() const noexcept { return id_to_token(cls_id()); };
     std::string mask_token() const noexcept { return id_to_token(mask_id()); };
