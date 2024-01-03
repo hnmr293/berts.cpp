@@ -33,10 +33,8 @@ struct vocab : public bert::vocab_base2<vocab> {
     bool init(berts_context *ctx, ggml_context *ggml, gguf_context *gguf);
 };
 
-struct model : public bert::base<vocab> {
-    model(ggml_type type);
-
-    bool init_weight(berts_context *ctx, ggml_context *ggml, gguf_context *gguf) override;
+struct model : public bert::base<vocab, bert::weights> {
+    using inherited::inherited;
 
     bool tokenize(const berts_context *ctx,
                   const std::string &text,

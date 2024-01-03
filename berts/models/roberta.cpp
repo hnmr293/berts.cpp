@@ -116,21 +116,6 @@ bool vocab::init(berts_context *ctx, ggml_context *ggml, gguf_context *gguf) {
     return true;
 }
 
-//
-// model::model
-//
-
-model::model(ggml_type type)
-    : base(type) {}
-
-//
-// model::init_weight
-//
-
-bool model::init_weight(berts_context *ctx, ggml_context *ggml, gguf_context *gguf) {
-    return false;
-}
-
 bool model::tokenize(const berts_context *ctx,
                      const std::string &text,
                      std::vector<bert_token_t> &out) const {

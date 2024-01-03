@@ -45,6 +45,16 @@ concept Vocab = requires(T &obj, berts_context *ctx, ggml_context *ggml, gguf_co
     { obj.eos_token() } -> std::convertible_to<std::string>;
 };
 
+template <typename T>
+concept Weights = requires(T &obj, berts_context *ctx, ggml_context *ggml, gguf_context *gguf) {
+    typename T::self_type;
+
+    new T{};
+
+    { obj.init(ctx, ggml, gguf) } -> std::convertible_to<bool>;
+};
+
+
 template <typename Self>
 struct vocab_base {
     using inherited = vocab_base<Self>;
@@ -151,55 +161,21 @@ struct vocab_base2 : public vocab_base<vocab_base2<Self>> {
     }
 };
 
-struct transformer_block {
-    // attn
-    ggml_tensor *q_w = nullptr;
-    ggml_tensor *q_b = nullptr;
-
-    ggml_tensor *k_w = nullptr;
-    ggml_tensor *k_b = nullptr;
-
-    ggml_tensor *v_w = nullptr;
-    ggml_tensor *v_b = nullptr;
-
-    // attn ff
-    ggml_tensor *ff_w = nullptr;
-    ggml_tensor *ff_b = nullptr;
-
-    ggml_tensor *ln_ff_w = nullptr;
-    ggml_tensor *ln_ff_b = nullptr;
-
-    // intermediate
-    ggml_tensor *i_w = nullptr;
-    ggml_tensor *i_b = nullptr;
-
-    // output
-    ggml_tensor *o_w = nullptr;
-    ggml_tensor *o_b = nullptr;
-
-    ggml_tensor *ln_out_w = nullptr;
-    ggml_tensor *ln_out_b = nullptr;
-};
-
-template <Vocab VocabType>
+template <Vocab VocabType, Weights WeightsType>
 struct base : public internal::model {
     using vocab_t = VocabType;
+    using weights_t = WeightsType;
+    using inherited = base<vocab_t, weights_t>;
 
     // weights
-    ggml_tensor *token_embedding = nullptr;
-    ggml_tensor *segment_embedding = nullptr;
-    ggml_tensor *position_embedding = nullptr;
-    ggml_tensor *ln_w = nullptr;
-    ggml_tensor *ln_b = nullptr;
-    std::vector<transformer_block> layers;
-    ggml_tensor *pool_w = nullptr;
-    ggml_tensor *pool_b = nullptr;
-
+    weights_t weights;
+    
     // tokenizer
     std::unique_ptr<vocab_t> vocab;
 
     base(ggml_type type)
         : internal::model(type)
+        , weights()
         , vocab(new vocab_t{}) {}
 
     ~base() override = default;
@@ -293,16 +269,13 @@ struct base : public internal::model {
         auto ggml = get_ggml_context(ctx);
         auto gguf = get_gguf_context(ctx);
 
-        if (!init_weight(ctx, ggml, gguf)) {
+        if (!weights.init(ctx, ggml, gguf)) {
             return false;
         }
 
         log::info("finish loading vocab");
         return true;
     }
-
-    // called from init_weight(berts_context *ctx)
-    virtual bool init_weight(berts_context *ctx, ggml_context *ggml, gguf_context *gguf) = 0;
 
     // delegate to vocab
     std::string id_to_token(bert_token_t token_id) const noexcept override {

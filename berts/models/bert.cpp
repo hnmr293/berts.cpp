@@ -207,14 +207,7 @@ bool vocab::init(berts_context *ctx, ggml_context *ggml, gguf_context *gguf) {
 }
 
 //
-// model::model
-//
-
-model::model(ggml_type type)
-    : base(type) {}
-
-//
-// model::init_weight
+// weights::init
 //
 
 #define KEY_PREFIX "berts.bert."
@@ -259,7 +252,7 @@ static inline ggml_tensor *tensor(ggml_context *ctx, const char *key) {
     return t;
 }
 
-bool model::init_weight(berts_context *ctx, ggml_context *ggml, gguf_context *gguf) {
+bool weights::init(berts_context *ctx, ggml_context *ggml, gguf_context *gguf) {
     std::vector<std::string> stored;
 
 #define GET_TENSOR(dest, key)         \
@@ -956,12 +949,12 @@ bool model::eval(berts_context *ctx,
     }
 
     // x = token_emb + pos_emb + seg_emb
-    auto x = ggml_get_rows(ggml, this->token_embedding, token_emb);
-    x = ggml_add(ggml, ggml_get_rows(ggml, this->position_embedding, pos_emb), x);
-    x = ggml_add(ggml, ggml_get_rows(ggml, this->segment_embedding, seg_emb), x);
+    auto x = ggml_get_rows(ggml, weights.token_embedding, token_emb);
+    x = ggml_add(ggml, ggml_get_rows(ggml, weights.position_embedding, pos_emb), x);
+    x = ggml_add(ggml, ggml_get_rows(ggml, weights.segment_embedding, seg_emb), x);
 
     // x = layer_norm(x)
-    x = bert_layer_norm(ggml, x, this->ln_w, this->ln_b, eps);
+    x = bert_layer_norm(ggml, x, weights.ln_w, weights.ln_b, eps);
 
     // x := (N,hidden_dim)
     GGML_ASSERT(x->n_dims == 2 || (x->ne[2] == 1 && x->ne[3] == 1));
@@ -992,7 +985,7 @@ bool model::eval(berts_context *ctx,
     };
 
     // * BertEncoder
-    for (const auto [layer_index, layer] : this->layers | std::views::enumerate) {
+    for (const auto [layer_index, layer] : weights.layers | std::views::enumerate) {
         // ** BertLayer
 
         if (last_layer_index <= layer_index) {
@@ -1099,7 +1092,7 @@ bool model::eval(berts_context *ctx,
 
     GGML_ASSERT(x->ne[0] == hparams.hidden_dim && x->ne[1] == 1 && x->ne[2] == 1 && x->ne[3] == 1);
 
-    x = bert_dense(ggml, x, this->pool_w, this->pool_b);
+    x = bert_dense(ggml, x, weights.pool_w, weights.pool_b);
     x = ggml_tanh(ggml, x);
 
 RUN_COMPUTE:
