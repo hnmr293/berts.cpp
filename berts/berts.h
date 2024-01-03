@@ -107,6 +107,10 @@ BERTS_API bert_token_t berts_sep_id(const berts_context *ctx);
 
 BERTS_API bert_token_t berts_unk_id(const berts_context *ctx);
 
+BERTS_API bert_token_t berts_bos_id(const berts_context *ctx);
+
+BERTS_API bert_token_t berts_eos_id(const berts_context *ctx);
+
 BERTS_API bool berts_id_to_token(const berts_context *ctx,
                                  bert_token_t id,
                                  char *out,

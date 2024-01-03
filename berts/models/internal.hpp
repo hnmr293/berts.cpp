@@ -70,6 +70,10 @@ struct model {
 
     virtual bert_token_t unk_id() const noexcept = 0;
 
+    virtual bert_token_t bos_id() const noexcept = 0;
+
+    virtual bert_token_t eos_id() const noexcept = 0;
+
     virtual bool tokenize(const berts_context *ctx,
                           const std::string &text,
                           std::vector<bert_token_t> &out) const = 0;

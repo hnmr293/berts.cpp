@@ -1,7 +1,7 @@
 #pragma once
 
-#include <vector>
 #include <memory>
+#include <vector>
 #include "berts/models/internal.hpp"
 
 namespace berts::bert {
@@ -48,12 +48,12 @@ struct model : public internal::model {
     std::vector<transformer_block> layers;
     ggml_tensor *pool_w = nullptr;
     ggml_tensor *pool_b = nullptr;
-    
+
     // tokenizer
     std::unique_ptr<vocab> vocab;
 
     model(ggml_type type);
-    
+
     ~model() override;
 
     bool init_vocab(berts_context *ctx) override;
@@ -77,7 +77,11 @@ struct model : public internal::model {
     bert_token_t sep_id() const noexcept override;
 
     bert_token_t unk_id() const noexcept override;
-    
+
+    bert_token_t bos_id() const noexcept override;
+
+    bert_token_t eos_id() const noexcept override;
+
     bool tokenize(const berts_context *ctx,
                   const std::string &text,
                   std::vector<bert_token_t> &out) const override;

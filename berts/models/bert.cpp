@@ -266,6 +266,14 @@ bert_token_t model::unk_id() const noexcept {
     return vocab->special.unk;
 }
 
+bert_token_t model::bos_id() const noexcept {
+    return BERTS_INVALID_TOKEN_ID;
+}
+
+bert_token_t model::eos_id() const noexcept {
+    return BERTS_INVALID_TOKEN_ID;
+}
+
 //
 // model::init_weight
 //
