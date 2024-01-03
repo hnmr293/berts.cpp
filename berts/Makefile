@@ -47,7 +47,8 @@ TESTS = \
 	test_trie \
 	test_bert \
 	test_roberta_tokenizer \
-	test_bpe
+	test_bpe \
+	test_roberta
 
 BUILD_TARGET += $(addsuffix $(EXE_EXT),$(EXAMPLES))
 BUILD_TARGET += $(addsuffix _d$(EXE_EXT),$(EXAMPLES))
@@ -169,6 +170,9 @@ gguf.o: models/gguf.cpp models/gguf.hpp $(COMMON_HEADERS)
 bert.o: models/bert.cpp models/bert.hpp $(COMMON_HEADERS)
 	$(CXX) $(CXXFLAGS) -c $< -o $@
 
+roberta.o: models/roberta.cpp models/roberta.hpp $(COMMON_HEADERS)
+	$(CXX) $(CXXFLAGS) -c $< -o $@
+
 quantize.o: models/quantize.cpp $(COMMON_HEADERS)
 	$(CXX) $(CXXFLAGS) -c $< -o $@
 
@@ -194,7 +198,7 @@ clean:
 	rm -rf *.o *.lib *.so *.dll *.exe
 	rm -f ../lib/libberts.a ../lib/berts.a ../lib/libberts.lib ../lib/berts.lib ../lib/libberts.so ../lib/berts.so ../lib/libberts.dll ../lib/berts.dll
 
-OBJS += utils.o berts.o gguf.o bert.o quantize.o internal.o trie.o unicode.o log.o bpe.o 
+OBJS += utils.o berts.o gguf.o bert.o roberta.o quantize.o internal.o trie.o unicode.o log.o bpe.o 
 
 $(STATIC_LIB): $(OBJS)
 	ar rcs $@ $^
@@ -250,4 +254,10 @@ test_roberta_tokenizer$(EXE_EXT):   tests/test_roberta.cpp $(COMMON_HEADERS) $(S
 	$(CXX) $(CXXFLAGS) $(filter-out %.h %.hpp,$^) $(STAITC_LIB_GGML)   -o $@ $(LDFLAGS)
 
 test_roberta_tokenizer_d$(EXE_EXT): tests/test_roberta.cpp $(COMMON_HEADERS) $(STATIC_LIB)
+	$(CXX) $(CXXFLAGS) $(filter-out %.h %.hpp,$^) $(STAITC_LIB_GGML_D) -o $@ $(LDFLAGS)
+
+test_roberta$(EXE_EXT):     tests/test_roberta.cpp $(COMMON_HEADERS) $(STATIC_LIB)
+	$(CXX) $(CXXFLAGS) $(filter-out %.h %.hpp,$^) $(STAITC_LIB_GGML)   -o $@ $(LDFLAGS)
+
+test_roberta_d$(EXE_EXT):   tests/test_roberta.cpp $(COMMON_HEADERS) $(STATIC_LIB)
 	$(CXX) $(CXXFLAGS) $(filter-out %.h %.hpp,$^) $(STAITC_LIB_GGML_D) -o $@ $(LDFLAGS)

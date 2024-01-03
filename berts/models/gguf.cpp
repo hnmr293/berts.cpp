@@ -7,6 +7,7 @@
 #include "berts/models/internal.hpp"
 #include "berts/models/keys.h"
 #include "berts/models/log.hpp"
+#include "berts/models/roberta.hpp"
 #include "berts/models/utils.hpp"
 
 namespace internal = berts::internal;
@@ -270,8 +271,12 @@ berts_context *load_from_file(const std::string &path) {
     switch (hparams.architecture) {
         using enum bert_type;
     case BERTS_TYPE_BERT:
-        // ok
+        // BERT
         model = new bert::model(type);
+        break;
+    case BERTS_TYPE_ROBERTA:
+        // RoBERTa
+        model = new roberta::model(type);
         break;
     default:
         log::error("unknown bert_type: {}", (int)hparams.architecture);

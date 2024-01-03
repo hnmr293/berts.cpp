@@ -10,6 +10,8 @@ RoBERTa
         （基本的に pad_token_id: 0 なのであまり関係ないけど）
         トークンごとに 1 ずつ増やしていくのは BERT と同じだが、
         途中トークンIDが pad_token_id だったらそこは 0 にしてスキップする
+    モデルの構造はまったく同じ
+    Embedding のみ、上述の pad_token_id 関連が異なっている
 - Tokenizer
     - 標準で word piece から bpe になった
     - bpe の辞書として merges.txt が追加されている
