@@ -90,3 +90,6 @@
 
 // type: [u8]
 #define BERTS_KEY_ALL_VOCAB_DATA "berts.vocab.data"
+
+// type: [i32]
+#define BERTS_KEY_ALL_MERGE_DATA "berts.merge.data"

@@ -5,14 +5,22 @@ import re
 import numpy as np
 import gguf
 from transformers import (
-    #AutoTokenizer,
-    #AutoModel,
+    AutoTokenizer,
+    AutoModel,
+    PreTrainedTokenizer,
+    PreTrainedModel,
+    PretrainedConfig,
     BertTokenizer,
     BertModel,
     BertConfig,
+    RobertaTokenizer,
+    RobertaModel,
+    RobertaConfig,
+    DebertaConfig,
+    DebertaV2Config,
 )
 
-#import zstandard as zstd
+
 
 def KEY(s: str):
     return 'berts.bert.' + s
@@ -75,121 +83,259 @@ def parse_args():
     args = ap.parse_args()
     return args
 
-def load_diffusers(repo_id: str, cache_dir: str|None) -> tuple[BertTokenizer, BertModel]:
-    tokenizer = BertTokenizer.from_pretrained(repo_id, cache_dir=cache_dir)
-    model = BertModel.from_pretrained(repo_id, cache_dir=cache_dir)
+def load_diffusers(repo_id: str, cache_dir: str|None) -> tuple[PreTrainedTokenizer, PreTrainedModel]:
+    tokenizer = AutoTokenizer.from_pretrained(repo_id, cache_dir=cache_dir, use_fast=False)
+    model = AutoModel.from_pretrained(repo_id, cache_dir=cache_dir)
+    
+    if not isinstance(tokenizer, (BertTokenizer, RobertaTokenizer)):
+        raise ValueError(f'unsupported class: {tokenizer.__class__.__name__}')
+    
+    if not isinstance(model, (BertModel, RobertaModel)):
+        raise ValueError(f'unsupported class: {model.__class__.__name__}')
+
     return tokenizer, model
 
-def convert(repo_id: str, cache_dir: str|None, output_path: str):
-    print('start quantization')
-    
-    tokenizer, model = load_diffusers(repo_id, cache_dir)
+def write_bert(w: gguf.GGUFWriter, tokenizer: BertTokenizer, model: BertModel, K: dict[str, str]):
     config: BertConfig = model.config
-
-    print(f'model loaded: {repo_id}')
     
-    w = gguf.GGUFWriter(output_path, arch='BERT')
-
-    w.add_name(repo_id)
-    w.add_custom_alignment(w.data_alignment) # if omitted, writer never writes "general.alignment"
+    # hparams
+    vocab_size = config.vocab_size
+    hidden_size = config.hidden_size
+    num_hidden_layers = config.num_hidden_layers
+    num_attention_heads = config.num_attention_heads
+    max_position_embeddings = config.max_position_embeddings
+    intermediate_size = config.intermediate_size
+    hidden_act = config.hidden_act
+    layer_norm_eps = config.layer_norm_eps
+    type_vocab_size = config.type_vocab_size
+    initializer_range = config.initializer_range
 
     print(f'''
 [hparams]
-  vocab_size = {config.vocab_size}
-  hidden_dim = {config.hidden_size}
-  n_layers   = {config.num_hidden_layers}
-  attn_heads = {config.num_attention_heads}
-  max_token  = {config.max_position_embeddings}
-  interm_dim = {config.intermediate_size}
-  hidden_act = {config.hidden_act}
-  segments   = {config.type_vocab_size}
-  init_range = {config.initializer_range}
+  arch       = BERT
+  vocab_size = {vocab_size}
+  hidden_dim = {hidden_size}
+  n_layers   = {num_hidden_layers}
+  attn_heads = {num_attention_heads}
+  max_token  = {max_position_embeddings}
+  interm_dim = {intermediate_size}
+  hidden_act = {hidden_act}
+  segments   = {type_vocab_size}
+  eps        = {layer_norm_eps}
+  init_range = {initializer_range}
 '''.strip())
     
-    K = load_keys(os.path.dirname(__file__) + '/keys.h')
-    
-    # hparams
-    w.add_uint32(K['BERTS_KEY_HPARAM_BERT_TYPE'], 0) # BERT
-    w.add_uint32(K['BERTS_KEY_HPARAM_VOCAB_SIZE'], config.vocab_size)
-    w.add_uint32(K['BERTS_KEY_HPARAM_HIDDEN_DIM'], config.hidden_size)
-    w.add_uint32(K['BERTS_KEY_HPARAM_N_LAYERS'], config.num_hidden_layers)
-    w.add_uint32(K['BERTS_KEY_HPARAM_ATTN_HEADS'], config.num_attention_heads)
-    w.add_uint32(K['BERTS_KEY_HPARAM_MAX_TOKENS'], config.max_position_embeddings)
-    w.add_uint32(K['BERTS_KEY_HPARAM_INTERMEDIATE_DIM'], config.intermediate_size)
+    w.add_uint32(K['BERTS_KEY_HPARAM_BERT_TYPE'], 0) # BERTS_TYPE_BERT
+    w.add_uint32(K['BERTS_KEY_HPARAM_VOCAB_SIZE'], vocab_size)
+    w.add_uint32(K['BERTS_KEY_HPARAM_HIDDEN_DIM'], hidden_size)
+    w.add_uint32(K['BERTS_KEY_HPARAM_N_LAYERS'], num_hidden_layers)
+    w.add_uint32(K['BERTS_KEY_HPARAM_ATTN_HEADS'], num_attention_heads)
+    w.add_uint32(K['BERTS_KEY_HPARAM_MAX_TOKENS'], max_position_embeddings)
+    w.add_uint32(K['BERTS_KEY_HPARAM_INTERMEDIATE_DIM'], intermediate_size)
     w.add_uint32(K['BERTS_KEY_HPARAM_HIDDEN_ACT'], 0) # GeLU
     assert model.config.hidden_act == 'gelu'
-    w.add_float64(K['BERTS_KEY_HPARAM_LN_EPS'], config.layer_norm_eps)
-    w.add_uint32(K['BERTS_KEY_HPARAM_SEGM_COUNT'], config.type_vocab_size)
-    w.add_float64(K['BERTS_KEY_HPARAM_INIT_RANGE'], config.initializer_range)
+    w.add_float64(K['BERTS_KEY_HPARAM_LN_EPS'], layer_norm_eps)
+    w.add_uint32(K['BERTS_KEY_HPARAM_SEGM_COUNT'], type_vocab_size)
+    w.add_float64(K['BERTS_KEY_HPARAM_INIT_RANGE'], initializer_range)
+
+    
+    # special tokens
+    cls_token_id = tokenizer.cls_token_id
+    mask_token_id = tokenizer.mask_token_id
+    pad_token_id = tokenizer.pad_token_id
+    sep_token_id = tokenizer.sep_token_id
+    unk_token_id = tokenizer.unk_token_id
+
+    print(f'''
+[special tokens]
+  cls_id  = {cls_token_id} {tokenizer.cls_token}
+  mask_id = {mask_token_id} {tokenizer.mask_token}
+  pad_id  = {pad_token_id} {tokenizer.pad_token}
+  sep_id  = {sep_token_id} {tokenizer.sep_token}
+  unk_id  = {unk_token_id} {tokenizer.unk_token}
+'''.strip())
+    
+    if cls_token_id is not None:
+        w.add_uint32(K['BERTS_KEY_TOKENIZER_CLS_ID'], cls_token_id)
+    if mask_token_id is not None:
+        w.add_uint32(K['BERTS_KEY_TOKENIZER_MASK_ID'], mask_token_id)
+    if pad_token_id is not None:
+        w.add_uint32(K['BERTS_KEY_TOKENIZER_PAD_ID'], pad_token_id)
+    if sep_token_id is not None:
+        w.add_uint32(K['BERTS_KEY_TOKENIZER_SEP_ID'], sep_token_id)
+    if unk_token_id is not None:
+        w.add_uint32(K['BERTS_KEY_TOKENIZER_UNK_ID'], unk_token_id)
 
     # tokenizer params
-    if tokenizer.cls_token_id is not None:
-        w.add_uint32(K['BERTS_KEY_TOKENIZER_CLS_ID'], tokenizer.cls_token_id)
-    if tokenizer.mask_token_id is not None:
-        w.add_uint32(K['BERTS_KEY_TOKENIZER_MASK_ID'], tokenizer.mask_token_id)
-    if tokenizer.pad_token_id is not None:
-        w.add_uint32(K['BERTS_KEY_TOKENIZER_PAD_ID'], tokenizer.pad_token_id)
-    if tokenizer.sep_token_id is not None:
-        w.add_uint32(K['BERTS_KEY_TOKENIZER_SEP_ID'], tokenizer.sep_token_id)
-    if tokenizer.unk_token_id is not None:
-        w.add_uint32(K['BERTS_KEY_TOKENIZER_UNK_ID'], tokenizer.unk_token_id)
-    if tokenizer.do_lower_case is not None:
-        w.add_bool(K['BERTS_KEY_TOKENIZER_DO_LOWER_CASE'], tokenizer.do_lower_case)
-    if tokenizer.do_basic_tokenize:
-        w.add_bool(K['BERTS_KEY_TOKENIZER_DO_BASIC_TOKENIZE'], tokenizer.do_basic_tokenize)
-    if hasattr(tokenizer, 'basic_tokenizer') and tokenizer.basic_tokenizer.tokenize_chinese_chars is not None:
-        w.add_bool(K['BERTS_KEY_TOKENIZER_CHINESE_CHARS'], tokenizer.basic_tokenizer.tokenize_chinese_chars)
-    # never split ???
-    if hasattr(tokenizer, 'basic_tokenizer') and tokenizer.basic_tokenizer.never_split is not None:
-        never_split = tokenizer.basic_tokenizer.never_split
-        if len(never_split) != 0:
-            raise RuntimeError(f'never_split: {tokenizer.basic_tokenizer.never_split}')
-            w.add_bool(K['BERTS_KEY_TOKENIZER_NEVER_SPLIT'], tokenizer.basic_tokenizer.never_split)
-    if hasattr(tokenizer, 'basic_tokenizer') and tokenizer.basic_tokenizer.strip_accents is not None:
-        w.add_bool(K['BERTS_KEY_TOKENIZER_STRIP_ACCENT'], tokenizer.basic_tokenizer.strip_accents)
+    def with_basic(tokenizer: PreTrainedTokenizer, attr: str, default = None):
+        if hasattr(tokenizer, 'basic_tokenizer'):
+            return getattr(tokenizer.basic_tokenizer, attr, default)
+        return default
     
-    ftype = 1 # f16
-    if args.use_f32:
-        ftype = 0 # f32
-    ftype_str = ['f32', 'f16'][ftype]
-    
-    w.add_file_type(ftype)
+    do_lower_case = tokenizer.do_lower_case
+    do_basic_tokenize = tokenizer.do_basic_tokenize
+    tokenize_chinese_chars = with_basic(tokenizer, 'tokenize_chinese_chars')
+    never_split = with_basic(tokenizer, 'never_split')
+    strip_accents = with_basic(tokenizer, 'strip_accents')
 
+    print(f'''
+[tokenizer params]
+  do_lower_case = {do_lower_case}
+  do_basic_tokenize = {do_basic_tokenize}
+  tokenize_chinese_chars = {tokenize_chinese_chars}
+  never_split = {never_split}
+  strip_accents = {strip_accents}
+'''.strip())
+    
+    if do_lower_case is not None:
+        w.add_bool(K['BERTS_KEY_TOKENIZER_DO_LOWER_CASE'], do_lower_case)
+    if do_basic_tokenize is not None:
+        w.add_bool(K['BERTS_KEY_TOKENIZER_DO_BASIC_TOKENIZE'], do_basic_tokenize)
+    if tokenize_chinese_chars is not None:
+        w.add_bool(K['BERTS_KEY_TOKENIZER_CHINESE_CHARS'], tokenize_chinese_chars)
+    # never split ???
+    if never_split is not None:
+        if len(never_split) != 0:
+            raise RuntimeError(f'never_split: {never_split}')
+            w.add_bool(K['BERTS_KEY_TOKENIZER_NEVER_SPLIT'], tokenizer.basic_tokenizer.never_split)
+    if strip_accents is not None:
+        w.add_bool(K['BERTS_KEY_TOKENIZER_STRIP_ACCENT'], strip_accents)
+
+
+def write_roberta(w: gguf.GGUFWriter, tokenizer: RobertaTokenizer, model: RobertaModel, K: dict[str, str]):
+    config: RobertaConfig = model.config
+    
+    # hparams
+    vocab_size = config.vocab_size
+    hidden_size = config.hidden_size
+    num_hidden_layers = config.num_hidden_layers
+    num_attention_heads = config.num_attention_heads
+    max_position_embeddings = config.max_position_embeddings
+    intermediate_size = config.intermediate_size
+    hidden_act = config.hidden_act
+    layer_norm_eps = config.layer_norm_eps
+    type_vocab_size = config.type_vocab_size
+    initializer_range = config.initializer_range
+    
+    print(f'''
+[hparams]
+  arch       = RoBERTa
+  vocab_size = {vocab_size}
+  hidden_dim = {hidden_size}
+  n_layers   = {num_hidden_layers}
+  attn_heads = {num_attention_heads}
+  max_token  = {max_position_embeddings}
+  interm_dim = {intermediate_size}
+  hidden_act = {hidden_act}
+  segments   = {type_vocab_size}
+  eps        = {layer_norm_eps}
+  init_range = {initializer_range}
+'''.strip())
+    
+    w.add_uint32(K['BERTS_KEY_HPARAM_BERT_TYPE'], 1) # BERTS_TYPE_ROBERTA
+    w.add_uint32(K['BERTS_KEY_HPARAM_VOCAB_SIZE'], vocab_size)
+    w.add_uint32(K['BERTS_KEY_HPARAM_HIDDEN_DIM'], hidden_size)
+    w.add_uint32(K['BERTS_KEY_HPARAM_N_LAYERS'], num_hidden_layers)
+    w.add_uint32(K['BERTS_KEY_HPARAM_ATTN_HEADS'], num_attention_heads)
+    w.add_uint32(K['BERTS_KEY_HPARAM_MAX_TOKENS'], max_position_embeddings)
+    w.add_uint32(K['BERTS_KEY_HPARAM_INTERMEDIATE_DIM'], intermediate_size)
+    match hidden_act.lower():
+        case 'gelu':
+            hidden_act_type = 0
+        case 'relu':
+            hidden_act_type = 1
+        case 'silu':
+            hidden_act_type = 2
+        case 'gelu_new':
+            hidden_act_type = 3
+        case None:
+            # use default value, GeLU
+            hidden_act_type = 0
+        case _:
+            raise ValueError(f'unknown hidden act: {hidden_act}')
+    w.add_uint32(K['BERTS_KEY_HPARAM_HIDDEN_ACT'], hidden_act_type)
+    w.add_float64(K['BERTS_KEY_HPARAM_LN_EPS'], layer_norm_eps)
+    w.add_uint32(K['BERTS_KEY_HPARAM_SEGM_COUNT'], type_vocab_size)
+    w.add_float64(K['BERTS_KEY_HPARAM_INIT_RANGE'], initializer_range)
+
+    
+    # special tokens
+    cls_token_id = tokenizer.cls_token_id
+    mask_token_id = tokenizer.mask_token_id
+    pad_token_id = tokenizer.pad_token_id
+    sep_token_id = tokenizer.sep_token_id
+    unk_token_id = tokenizer.unk_token_id
+    bos_token_id = tokenizer.bos_token_id
+    eos_token_id = tokenizer.eos_token_id
+
+    print(f'''
+[special tokens]
+  cls_id  = {cls_token_id} {tokenizer.cls_token}
+  mask_id = {mask_token_id} {tokenizer.mask_token}
+  pad_id  = {pad_token_id} {tokenizer.pad_token}
+  sep_id  = {sep_token_id} {tokenizer.sep_token}
+  unk_id  = {unk_token_id} {tokenizer.unk_token}
+  bos_id  = {bos_token_id} {tokenizer.bos_token}
+  eos_id  = {eos_token_id} {tokenizer.eos_token}
+'''.strip())
+
+    if cls_token_id is not None:
+        w.add_uint32(K['BERTS_KEY_TOKENIZER_CLS_ID'], cls_token_id)
+    if mask_token_id is not None:
+        w.add_uint32(K['BERTS_KEY_TOKENIZER_MASK_ID'], mask_token_id)
+    if pad_token_id is not None:
+        w.add_uint32(K['BERTS_KEY_TOKENIZER_PAD_ID'], pad_token_id)
+    if sep_token_id is not None:
+        w.add_uint32(K['BERTS_KEY_TOKENIZER_SEP_ID'], sep_token_id)
+    if unk_token_id is not None:
+        w.add_uint32(K['BERTS_KEY_TOKENIZER_UNK_ID'], unk_token_id)
+    if bos_token_id is not None:
+        w.add_uint32(K['BERTS_KEY_TOKENIZER_BOS_ID'], bos_token_id)
+    if eos_token_id is not None:
+        w.add_uint32(K['BERTS_KEY_TOKENIZER_EOS_ID'], eos_token_id)
+
+    # tokenizer params
+    # do nothing
+    
+
+def write_vocab(w: gguf.GGUFWriter, tokenizer: PreTrainedTokenizer, model: PreTrainedModel, K: dict):
     print('writing vocab...')
 
     vocab_dict = tokenizer.get_vocab()
-    tokens = [None] * config.vocab_size
+    tokens = [None] * model.config.vocab_size
     for token, id in vocab_dict.items():
         assert id <= len(tokens), f'id={id}, len(tokens)={len(tokens)}'
         assert tokens[id] is None, f'id={id}, tokens[id]={tokens[id]}'
         tokens[id] = token
+    
     unused = 0
+    unused_index = 0
     token_lengths = []
     token_bytes = []
     for token in tokens:
+        # make unused tokens
         if token is None:
-            token = f'[unused{unused}]'
+            token = f'[unused{unused_index}]'
+            while token in tokens:
+                unused_index += 1
+                token = f'[unused{unused_index}]'
             unused += 1
+            unused_index += 1
+        
+        # build token bytes
         bytes = token.encode('utf-8')
         n_bytes = len(bytes)
-        if 256 <= n_bytes:
-            raise f'too long token: {token}'
+        if n_bytes == 256:
+            n_bytes = 0
+        elif 256 < n_bytes:
+            raise ValueError(f'too long token: {token} ({n_bytes})')
         token_lengths.append(n_bytes)
         token_bytes.append(bytes)
+    
     token_lengths = np.array(token_lengths, dtype=np.uint8)
     token_bytes = b''.join(token_bytes)
-
-    #compressor = zstd.ZstdCompressor(
-    #    level=22,
-    #    write_checksum=True,
-    #    write_content_size=True,
-    #    write_dict_id=True,
-    #    threads=-1,
-    #)
-    #
-    #token_bytes = compressor.compress(token_bytes)
     token_bytes = np.frombuffer(token_bytes, dtype=np.int8)
-
+    
     w.add_tensor(K['BERTS_KEY_ALL_VOCAB_SIZE'], token_lengths, raw_dtype=GGML_TYPE_I8)
     w.add_tensor(K['BERTS_KEY_ALL_VOCAB_DATA'], token_bytes, raw_dtype=GGML_TYPE_I8)
 
@@ -199,6 +345,73 @@ def convert(repo_id: str, cache_dir: str|None, output_path: str):
   used   = {len(tokens) - unused}
   unused = {unused}
 '''.strip())
+
+
+def write_merge(w: gguf.GGUFWriter, vocab: dict[str, int], merges: dict[tuple[str,str], int], K: dict):
+    print('writing bpe merges...')
+    
+    #    [ (token0a, token0b) -> rank0, (token1a, token1b) -> rank1, ... ]
+    # -> [ id0a id0b rank0 id1a id1b rank1 ... ]
+    merge_data = []
+    for (token0, token1), rank in merges.items():
+        id0 = vocab.get(token0, None)
+        id1 = vocab.get(token1, None)
+        if id0 is None:
+            raise ValueError(f'{token0} is not found in vocab')
+        if id1 is None:
+            raise ValueError(f'{token1} is not found in vocab')
+        merge_data.extend([id0, id1, rank])
+    
+    merge_data = np.array(merge_data, dtype=np.int32)
+    
+    w.add_tensor(K['BERTS_KEY_ALL_MERGE_DATA'], merge_data, raw_dtype=GGML_TYPE_I32)
+
+    print(f'''
+[merges]
+  total = {len(merges)}
+'''.strip())
+
+
+def convert(repo_id: str, cache_dir: str|None, output_path: str):
+    print('start quantization')
+    
+    tokenizer, model = load_diffusers(repo_id, cache_dir)
+
+    print(f'model loaded: {repo_id}')
+    
+    match model.__class__.__name__:
+        case 'BertModel':
+            w = gguf.GGUFWriter(output_path, arch='BERT')
+        case 'RobertaModel':
+            w = gguf.GGUFWriter(output_path, arch='RoBERTa')
+        case _:
+            raise ValueError('must not happen')
+
+    w.add_name(repo_id)
+    w.add_custom_alignment(w.data_alignment) # if omitted, writer never writes "general.alignment"
+
+    K = load_keys(os.path.dirname(__file__) + '/keys.h')
+
+    match model.__class__.__name__:
+        case 'BertModel':
+            write_bert(w, tokenizer, model, K)
+        case 'RobertaModel':
+            write_roberta(w, tokenizer, model, K)
+        case _:
+            raise ValueError('must not happen')
+
+    ftype = 1 # f16
+    if args.use_f32:
+        ftype = 0 # f32
+    #ftype_str = ['f32', 'f16'][ftype]
+    
+    w.add_file_type(ftype)
+
+    write_vocab(w, tokenizer, model, K)
+
+    if hasattr(tokenizer, 'bpe_ranks'):
+        # tokenizer has merges.txt
+        write_merge(w, tokenizer.get_vocab(), tokenizer.bpe_ranks, K)
 
     print('converting...')
     

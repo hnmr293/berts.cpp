@@ -447,6 +447,9 @@ bool model::init_vocab(berts_context *ctx) {
     ptrdiff_t p = 0;
     for (int64_t token_id = 0; token_id < vocab_count; ++token_id) {
         size_t token_len = (size_t)token_lengths[token_id];
+        if (token_len == 0) {
+            token_len = 256;
+        }
         std::string token{&data[p], token_len};
         p += token_len;
 
