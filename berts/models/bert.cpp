@@ -173,16 +173,42 @@ static inline bool add_token(vocab &vocab, const std::string &token) {
     return true;
 }
 
-static inline bert_token_t get_special_token_id(const vocab &vocab, const gguf_context *gguf, const char *key, const char *alternate) {
+static inline bert_token_t get_special_token_id(const vocab &vocab, const gguf_context *gguf, const char *key, const char *alternate1, const char *alternate2 = nullptr) {
+    const char *failed_key = nullptr;
+
     auto id = gguf::gguf_u32(gguf, key, BERTS_INVALID_TOKEN_ID);
     if (id == BERTS_INVALID_TOKEN_ID) {
-        log::warn("{} is not defined; use {} instead", key, alternate);
-        id = token_to_id(vocab, alternate);
+        if (!alternate1) {
+            failed_key = key;
+            goto FAIL;
+        }
+
+        log::warn("{} is not defined; use {} instead", key, alternate1);
+        id = token_to_id(vocab, alternate1);
+
         if (id == BERTS_INVALID_TOKEN_ID) {
-            log::error("{} does not exist in vocab", alternate);
+            if (!alternate2) {
+                failed_key = alternate1;
+                goto FAIL;
+            }
+
+            log::warn("{} is not defined; use {} instead", alternate1, alternate2);
+            id = token_to_id(vocab, alternate2);
+
+            if (id == BERTS_INVALID_TOKEN_ID) {
+                failed_key = alternate2;
+                goto FAIL;
+            }
         }
     }
+
     return id;
+
+FAIL:
+    if (failed_key) {
+        log::error("{} does not exist in vocab", failed_key);
+    }
+    return BERTS_INVALID_TOKEN_ID;
 }
 
 //
@@ -433,11 +459,11 @@ bool model::init_vocab(berts_context *ctx) {
     }
 
     struct vocab &vocab = *this->vocab;
-    auto cls_id = get_special_token_id(vocab, gguf, BERTS_KEY_TOKENIZER_CLS_ID, "[CLS]");
-    auto mask_id = get_special_token_id(vocab, gguf, BERTS_KEY_TOKENIZER_MASK_ID, "[MASK]");
-    auto pad_id = get_special_token_id(vocab, gguf, BERTS_KEY_TOKENIZER_PAD_ID, "[PAD]");
-    auto sep_id = get_special_token_id(vocab, gguf, BERTS_KEY_TOKENIZER_SEP_ID, "[SEP]");
-    auto unk_id = get_special_token_id(vocab, gguf, BERTS_KEY_TOKENIZER_UNK_ID, "[UNK]");
+    auto cls_id = get_special_token_id(vocab, gguf, BERTS_KEY_TOKENIZER_CLS_ID, "[CLS]", "<s>");
+    auto mask_id = get_special_token_id(vocab, gguf, BERTS_KEY_TOKENIZER_MASK_ID, "[MASK]", "<mask>");
+    auto pad_id = get_special_token_id(vocab, gguf, BERTS_KEY_TOKENIZER_PAD_ID, "[PAD]", "<pad>");
+    auto sep_id = get_special_token_id(vocab, gguf, BERTS_KEY_TOKENIZER_SEP_ID, "[SEP]", "</s>");
+    auto unk_id = get_special_token_id(vocab, gguf, BERTS_KEY_TOKENIZER_UNK_ID, "[UNK]", "<unk>");
 
     log::when(BERTS_LOG_INFO, [=, &vocab]() {
         auto cls = bert::id_to_token(vocab, cls_id);

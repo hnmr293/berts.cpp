@@ -45,20 +45,26 @@
 // tokenizer_config.json
 //
 
-// type: u32 *optional, defaults to id of [CLS]
+// type: u32 *optional, defaults to id of [CLS] or <s>
 #define BERTS_KEY_TOKENIZER_CLS_ID "berts.cls_id"
 
-// type: u32 *optional, defaults to id of [MASK]
+// type: u32 *optional, defaults to id of [MASK] or <mask>
 #define BERTS_KEY_TOKENIZER_MASK_ID "berts.mask_id"
 
-// type: u32 *optional, defaults to id of [PAD]
+// type: u32 *optional, defaults to id of [PAD] or <pad>
 #define BERTS_KEY_TOKENIZER_PAD_ID "berts.pad_id"
 
-// type: u32 *optional, defaults to id of [SEP]
+// type: u32 *optional, defaults to id of [SEP] or </s>
 #define BERTS_KEY_TOKENIZER_SEP_ID "berts.sep_id"
 
-// type: u32 *optional, defaults to id of [UNK]
+// type: u32 *optional, defaults to id of [UNK] or <unk>
 #define BERTS_KEY_TOKENIZER_UNK_ID "berts.unk_id"
+
+// type: u32 *optional, defaults to id of cls token
+#define BERTS_KEY_TOKENIZER_BOS_ID "berts.bos_id"
+
+// type: u32 *optional, defaults to id of sep token
+#define BERTS_KEY_TOKENIZER_BOS_ID "berts.eos_id"
 
 // type: bool *optional, defaults to `true`
 #define BERTS_KEY_TOKENIZER_DO_LOWER_CASE "berts.do_lower_case"
