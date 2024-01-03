@@ -2,6 +2,7 @@
 
 #include <memory>
 #include <type_traits>
+#include <unordered_map>
 #include <vector>
 #include "berts/models/gguf.hpp"
 #include "berts/models/internal.hpp"
@@ -12,6 +13,8 @@ namespace berts::bert {
 
 template <typename T>
 concept Vocab = requires(T &obj, berts_context *ctx, ggml_context *ggml, gguf_context *gguf, const std::string &str) {
+    typename T::self_type;
+
     new T{};
 
     { obj.cls_id() } -> std::convertible_to<bert_token_t>;
@@ -44,8 +47,7 @@ concept Vocab = requires(T &obj, berts_context *ctx, ggml_context *ggml, gguf_co
 
 template <typename Self>
 struct vocab_base {
-    using self_type = Self;
-    using base_type = vocab_base;
+    using inherited = vocab_base<Self>;
 
     bert_token_t get_token_id(const gguf_context *gguf, const char *key, const char *alternate1, const char *alternate2 = nullptr) {
         const char *failed_key = nullptr;
@@ -93,9 +95,60 @@ struct vocab_base {
     std::string bos_token() const noexcept { return as_self()->id_to_token(as_self()->bos_id()); };
     std::string eos_token() const noexcept { return as_self()->id_to_token(as_self()->eos_id()); };
 
-  private:
-    self_type *as_self() noexcept { return static_cast<self_type *>(this); }
-    const self_type *as_self() const noexcept { return static_cast<const self_type *>(this); }
+  protected:
+    auto as_self() noexcept { return static_cast<typename Self::self_type *>(this); }
+    const auto as_self() const noexcept { return static_cast<const typename Self::self_type *>(this); }
+};
+
+template <typename Self>
+struct vocab_base2 : public vocab_base<vocab_base2<Self>> {
+    using self_type = Self;
+    using inherited = vocab_base2<Self>;
+
+    std::vector<std::string> id_to_token_;
+    std::unordered_map<std::string, bert_token_t> token_to_id_;
+
+    vocab_base2() = default;
+
+    std::string id_to_token(bert_token_t token_id) const noexcept {
+        if (id_to_token_.size() <= token_id) {
+            log::error("token id {} is not found (max={})", token_id, id_to_token_.size());
+            return "";
+        }
+        return id_to_token_[token_id];
+    }
+
+    bert_token_t token_to_id(const std::string &token) const noexcept {
+        const auto p = token_to_id_.find(token);
+        if (p == token_to_id_.end()) {
+            log::error("token {} is not found", token);
+            return BERTS_INVALID_TOKEN_ID;
+        }
+        return p->second;
+    }
+
+    bool add_token(const std::string &token) {
+        if (has_token(token)) {
+            log::warn("  token {} already exists", token);
+            return false;
+        }
+
+        const auto next_id = static_cast<bert_token_t>(id_to_token_.size());
+        id_to_token_.push_back(token);
+        token_to_id_[token] = next_id;
+        // log::debug("  token {}: {}", next_id, token);
+        return true;
+    }
+
+    bool has_token(const std::string &token) const noexcept {
+        const auto p = token_to_id_.find(token);
+        return p != token_to_id_.end();
+    }
+
+    void clear() {
+        id_to_token_.clear();
+        token_to_id_.clear();
+    }
 };
 
 struct transformer_block {

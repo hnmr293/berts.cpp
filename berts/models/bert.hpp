@@ -56,12 +56,10 @@ struct special_tokens {
     bert_token_t unk;
 };
 
-struct vocab : public vocab_base<vocab> {
+struct vocab : public vocab_base2<vocab> {
     tokenizer_info cond;
     special_tokens special;
     std::unique_ptr<berts::trie::trie> trie;
-    std::vector<std::string> id_to_token_;
-    std::unordered_map<std::string, bert_token_t> token_to_id_;
 
     vocab();
     vocab(size_t n);
@@ -77,12 +75,6 @@ struct vocab : public vocab_base<vocab> {
     bert_token_t unk_id() const noexcept;
     bert_token_t bos_id() const noexcept;
     bert_token_t eos_id() const noexcept;
-
-    std::string id_to_token(bert_token_t token_id) const noexcept;
-    bert_token_t token_to_id(const std::string &token) const noexcept;
-
-    bool add_token(const std::string &token);
-    bool has_token(const std::string &token) const noexcept;
 
     bool init(berts_context *ctx, ggml_context *ggml, gguf_context *gguf);
 

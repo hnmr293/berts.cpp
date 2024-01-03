@@ -52,7 +52,8 @@ static inline tokenizer_info tokenizer_info_no_basic() {
 }
 
 vocab::vocab()
-    : trie(nullptr) {
+    : inherited()
+    , trie(nullptr) {
     special.cls = BERTS_INVALID_TOKEN_ID;
     special.mask = BERTS_INVALID_TOKEN_ID;
     special.pad = BERTS_INVALID_TOKEN_ID;
@@ -72,41 +73,6 @@ bool vocab::build_trie() {
     trie.reset(trie::build_trie(id_to_token_));
     return trie && id_to_token_.size();
 }
-
-std::string vocab::id_to_token(bert_token_t token_id) const noexcept {
-    if (id_to_token_.size() <= token_id) {
-        log::error("token id {} is not found (max={})", token_id, id_to_token_.size());
-        return "";
-    }
-    return id_to_token_[token_id];
-};
-
-bert_token_t vocab::token_to_id(const std::string &token) const noexcept {
-    const auto p = token_to_id_.find(token);
-    if (p == token_to_id_.end()) {
-        log::error("token {} is not found", token);
-        return BERTS_INVALID_TOKEN_ID;
-    }
-    return p->second;
-};
-
-bool vocab::add_token(const std::string &token) {
-    if (has_token(token)) {
-        log::warn("  token {} already exists", token);
-        return false;
-    }
-
-    const auto next_id = static_cast<bert_token_t>(id_to_token_.size());
-    id_to_token_.push_back(token);
-    token_to_id_[token] = next_id;
-    // log::debug("  token {}: {}", next_id, token);
-    return true;
-};
-
-bool vocab::has_token(const std::string &token) const noexcept {
-    const auto p = token_to_id_.find(token);
-    return p != token_to_id_.end();
-};
 
 void vocab::clear() {
     id_to_token_.clear();
