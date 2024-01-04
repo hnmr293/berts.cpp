@@ -148,17 +148,17 @@ bool bpe::load_vocab(const vocab_t &vocab, const std::vector<token_id_pair> &mer
         this->vocab_r.insert_or_assign(id, str);
     }
     
-    log::when(BERTS_LOG_DEBUG, [this, &vocab]() {
-        log::debug("  vocab");
-        std::vector<bert_token_t> ids{};
-        for (const auto &[str, id] : vocab) {
-            ids.push_back(id);
-        }
-        std::sort(ids.begin(), ids.end());
-        for (auto &&id : ids) {
-            log::debug("    {:>3}: {}", id, this->vocab_r[id].encode());
-        }
-    });
+    //log::when(BERTS_LOG_DEBUG, [this, &vocab]() {
+    //    log::debug("  vocab");
+    //    std::vector<bert_token_t> ids{};
+    //    for (const auto &[str, id] : vocab) {
+    //        ids.push_back(id);
+    //    }
+    //    std::sort(ids.begin(), ids.end());
+    //    for (auto &&id : ids) {
+    //        log::debug("    {:>3}: {}", id, this->vocab_r[id].encode());
+    //    }
+    //});
 
     log::debug("  merge");
     const auto prefix_len = continueing_subword_prefix().codepoints();
@@ -191,7 +191,7 @@ bool bpe::load_vocab(const vocab_t &vocab, const std::vector<token_id_pair> &mer
         }
 
         this->merge.insert_or_assign(pair, std::pair{rank, new_token_id});
-        log::debug("    rank={}, [{}({}), {}({})] -> {}({})", rank, token0.encode(), id0, token1.encode(), id1, new_token.encode(), new_token_id);
+        //log::debug("    rank={}, [{}({}), {}({})] -> {}({})", rank, token0.encode(), id0, token1.encode(), id1, new_token.encode(), new_token_id);
     }
 
     log::debug("finish loading BPE vocab");
@@ -233,7 +233,7 @@ bool bpe::tokenize(const str_t &text, tokenized_t &result, cache_t &cache) const
 static bool tokenize_bpe(const bpe &bpe, const bpe::str_t &text, bpe::tokenized_t &result, bpe::cache_t *cache) {
     log::when(BERTS_LOG_DEBUG, [&text]() {
         log::debug("start BPE tokenization");
-        log::debug("  text = {}", text.encode());
+        log::debug("  text = \"{}\"", text.encode());
     });
 
     if (text.empty()) return true;
