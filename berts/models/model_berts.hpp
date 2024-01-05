@@ -5,11 +5,11 @@
 namespace berts::internal {
 
 template <Vocab VocabType, Weights WeightsType>
-struct berts_model : public model_base<VocabType, WeightsType> {
+struct model_berts : public model_base<VocabType, WeightsType> {
     using inherited = model_base<VocabType, WeightsType>;
     using inherited::inherited;
 
-    ~berts_model() override = default;
+    ~model_berts() override = default;
     
     // name of model such as "BERT", "RoBERTa" and so on
     virtual std::string model_name() const = 0;

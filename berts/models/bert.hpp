@@ -128,8 +128,8 @@ struct weights {
     bool init(berts_context *ctx, ggml_context *ggml, gguf_context *gguf);
 };
 
-struct model : public internal::berts_model<vocab, weights> {
-    using inherited = internal::berts_model<struct vocab, struct weights>;
+struct model : public internal::model_berts<vocab, weights> {
+    using inherited = internal::model_berts<struct vocab, struct weights>;
     using inherited::inherited;
 
     std::string model_name() const override {

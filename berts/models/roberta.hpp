@@ -35,8 +35,8 @@ struct vocab : public internal::vocab_base2<vocab> {
     bool init(berts_context *ctx, ggml_context *ggml, gguf_context *gguf);
 };
 
-struct model : public internal::berts_model<vocab, bert::weights> {
-    using inherited = internal::berts_model<struct vocab, bert::weights>;
+struct model : public internal::model_berts<vocab, bert::weights> {
+    using inherited = internal::model_berts<struct vocab, bert::weights>;
     using inherited::inherited;
 
     std::string model_name() const override {
