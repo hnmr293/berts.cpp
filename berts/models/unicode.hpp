@@ -80,6 +80,10 @@ struct ustr {
 
     void pack_to(unic_t *buffer) const;
 
+    void pack_to(std::vector<unic_t> &buffer) const;
+
+    void pack_to(std::vector<unic32_t> &buffer) const;
+
     unic_t operator[](size_t index) const;
 
     //
@@ -89,6 +93,10 @@ struct ustr {
     bool starts_with(const ustr &prefix) const;
 
     bool ends_with(const ustr &suffix) const;
+
+    ustr lstrip() const;
+
+    ustr rstrip() const;
 
     //
     // iterators

@@ -438,6 +438,16 @@ void ustr::pack_to(unic_t *buffer) const {
     std::copy(impl->str, impl->str + impl->size, buffer);
 }
 
+void ustr::pack_to(std::vector<unic_t> &buffer) const {
+    std::copy(impl->str, impl->str + impl->size, std::back_inserter(buffer));
+}
+
+void ustr::pack_to(std::vector<unic32_t> &buffer) const {
+    each_cp(false, [&buffer](cp c) {
+        buffer.push_back(c.c);
+    });
+}
+
 unic_t ustr::operator[](size_t index) const {
     if (index < (size_t)impl->size) {
         return impl->str[index];
@@ -459,6 +469,36 @@ bool ustr::ends_with(const ustr &suffix) const {
     }
     size_t index = impl->size - suffix.impl->size;
     return std::memcmp(impl->str + index, suffix.impl->str, suffix.impl->size) == 0;
+}
+
+ustr ustr::lstrip() const {
+    std::vector<unic32_t> str{};
+
+    bool doit = true;
+    each_cp(false, [&str, &doit](const cp &cp) {
+        if (doit && is_whitespace(cp.c)) {
+            return;
+        }
+        doit = false;
+        str.push_back(cp.c);
+    });
+
+    return {str};
+}
+
+ustr ustr::rstrip() const {
+    std::vector<unic32_t> str{};
+    pack_to(str);
+
+    std::reverse_iterator it{str.end()};
+    std::reverse_iterator end(str.begin());
+
+    while (it < end && is_whitespace(*it)) {
+        it += 1;
+    }
+
+    auto size = end - it;
+    return {str.data(), size};
 }
 
 unic_t *ustr::begin() const {
@@ -633,10 +673,10 @@ bool regex::test(const ustr &str) {
     auto pattern = (URegularExpression *)impl;
 
     UErrorCode e = U_ZERO_ERROR;
-    
+
     uregex_setText(pattern, str.impl->str, str.impl->size, &e);
     if (!check_uerror(e)) return false;
-    
+
     uregex_reset(pattern, 0, &e);
     if (!check_uerror(e)) return false;
 
@@ -653,7 +693,7 @@ size_t regex::split(const ustr &str, std::vector<ustr> &out) {
     auto pattern = (URegularExpression *)impl;
 
     UErrorCode e = U_ZERO_ERROR;
-    
+
     uregex_setText(pattern, str.impl->str, str.impl->size, &e);
     if (!check_uerror(e)) return false;
 
@@ -666,9 +706,9 @@ size_t regex::split(const ustr &str, std::vector<ustr> &out) {
     while (true) {
         bool found = uregex_findNext(pattern, &e);
         if (!check_uerror(e)) return false;
-        
+
         if (!found) break;
-        
+
         int32_t start = uregex_start(pattern, 0, &e);
         if (!check_uerror(e)) return false;
         int32_t end = uregex_end(pattern, 0, &e);
@@ -682,8 +722,8 @@ size_t regex::split(const ustr &str, std::vector<ustr> &out) {
          *    ^   ^~~~~~^
          *    |   start end
          *  current
-        */
-        
+         */
+
         if (current < start) {
             out.emplace_back(str.impl->str + current, start - current);
             added += 1;
