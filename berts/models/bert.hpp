@@ -2,7 +2,7 @@
 
 #include <memory>
 #include <vector>
-#include "berts/models/bert_base.hpp"
+#include "berts/models/model_berts.hpp"
 #include "berts/models/trie.hpp"
 
 // std::unique_resource<trie::trie>
@@ -128,7 +128,8 @@ struct weights {
     bool init(berts_context *ctx, ggml_context *ggml, gguf_context *gguf);
 };
 
-struct model : public internal::base<vocab, weights> {
+struct model : public internal::berts_model<vocab, weights> {
+    using inherited = internal::berts_model<struct vocab, struct weights>;
     using inherited::inherited;
 
     std::string model_name() const override {
