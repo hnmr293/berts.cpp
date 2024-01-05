@@ -44,6 +44,7 @@ EXAMPLES = \
 TESTS = \
 	test_bert_tokenizer \
 	test_unicode \
+	test_uregex \
 	test_trie \
 	test_bert \
 	test_roberta_tokenizer \
@@ -230,6 +231,12 @@ test_unicode$(EXE_EXT):     tests/test_unicode.cpp $(COMMON_HEADERS) $(STATIC_LI
 	$(CXX) $(CXXFLAGS) $(filter-out %.h %.hpp,$^) $(STAITC_LIB_GGML)   -o $@ $(LDFLAGS)
 
 test_unicode_d$(EXE_EXT):   tests/test_unicode.cpp $(COMMON_HEADERS) $(STATIC_LIB)
+	$(CXX) $(CXXFLAGS) $(filter-out %.h %.hpp,$^) $(STAITC_LIB_GGML_D) -o $@ $(LDFLAGS)
+
+test_uregex$(EXE_EXT):      tests/test_uregex.cpp $(COMMON_HEADERS) $(STATIC_LIB)
+	$(CXX) $(CXXFLAGS) $(filter-out %.h %.hpp,$^) $(STAITC_LIB_GGML)   -o $@ $(LDFLAGS)
+
+test_uregex_d$(EXE_EXT):    tests/test_uregex.cpp $(COMMON_HEADERS) $(STATIC_LIB)
 	$(CXX) $(CXXFLAGS) $(filter-out %.h %.hpp,$^) $(STAITC_LIB_GGML_D) -o $@ $(LDFLAGS)
 
 test_trie$(EXE_EXT):        tests/test_trie.cpp $(COMMON_HEADERS) $(STATIC_LIB)

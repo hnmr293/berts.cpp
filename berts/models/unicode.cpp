@@ -315,18 +315,18 @@ ustr ustr::operator+(const ustr &rhs) const {
     const auto lsize = impl->size;
     const auto rstr = rhs.impl->str;
     const auto rsize = rhs.impl->size;
-    
+
     ustr s{};
     s.impl->alloc(lsize + rsize);
     const auto sstr = s.impl->str;
-    
+
     if (lsize != 0) {
         std::copy(lstr, lstr + lsize, sstr);
     }
     if (rsize != 0) {
         std::copy(rstr, rstr + rsize, sstr + lsize);
     }
-    
+
     return s;
 }
 
@@ -334,7 +334,7 @@ ustr &ustr::operator+=(const ustr &rhs) {
     if (rhs.impl->size == 0) {
         return *this;
     }
-    
+
     if (impl->size == 0) {
         *impl = *rhs.impl;
         return *this;
@@ -342,10 +342,10 @@ ustr &ustr::operator+=(const ustr &rhs) {
 
     // If rhs is *this, impl->alloc will break rhs's buffer
     // so buffer must be copied first.
-    
+
     ustr result = *this + rhs;
     *this = result;
-    
+
     return *this;
 }
 
@@ -444,6 +444,21 @@ unic_t ustr::operator[](size_t index) const {
     } else {
         return (unic_t)0xfffd;
     }
+}
+
+bool ustr::starts_with(const ustr &prefix) const {
+    if (impl->size < prefix.impl->size) {
+        return false;
+    }
+    return std::memcmp(impl->str, prefix.impl->str, prefix.impl->size) == 0;
+}
+
+bool ustr::ends_with(const ustr &suffix) const {
+    if (impl->size < suffix.impl->size) {
+        return false;
+    }
+    size_t index = impl->size - suffix.impl->size;
+    return std::memcmp(impl->str + index, suffix.impl->str, suffix.impl->size) == 0;
 }
 
 unic_t *ustr::begin() const {
@@ -568,6 +583,124 @@ bool to_upper(const ustr &in, ustr &out) {
     out.impl->alloc(size);
     u_strToUpper(out.impl->str, out.impl->size, in.impl->str, in.impl->size, "", &out.impl->e);
     return out.ok();
+}
+
+regex::regex()
+    : impl(nullptr) {
+    UChar dummy{0};
+    UErrorCode e = U_ZERO_ERROR;
+    UParseError pe{};
+    impl = uregex_open(&dummy, 0, 0, &pe, &e);
+    if (!check_uerror(e)) {
+        impl = nullptr;
+    }
+}
+
+regex::regex(const ustr &pattern)
+    : impl(nullptr) {
+    UErrorCode e = U_ZERO_ERROR;
+    impl = uregex_open(pattern.impl->str, pattern.impl->size, 0, nullptr, &e);
+    if (!check_uerror(e)) {
+        impl = nullptr;
+    }
+}
+
+regex::regex(regex &&other)
+    : impl(other.impl) {
+    other.impl = nullptr;
+}
+
+regex::~regex() {
+    if (impl) {
+        uregex_close((URegularExpression *)impl);
+    }
+}
+
+regex &regex::operator=(regex &&other) {
+    if (this != &other) {
+        if (impl) {
+            uregex_close((URegularExpression *)impl);
+        }
+        impl = other.impl;
+        other.impl = nullptr;
+    }
+    return *this;
+}
+
+bool regex::test(const ustr &str) {
+    if (!impl) return false;
+
+    auto pattern = (URegularExpression *)impl;
+
+    UErrorCode e = U_ZERO_ERROR;
+    
+    uregex_setText(pattern, str.impl->str, str.impl->size, &e);
+    if (!check_uerror(e)) return false;
+    
+    uregex_reset(pattern, 0, &e);
+    if (!check_uerror(e)) return false;
+
+    if (uregex_find(pattern, 0, &e)) {
+        return check_uerror(e);
+    }
+
+    return false;
+}
+
+size_t regex::split(const ustr &str, std::vector<ustr> &out) {
+    if (!impl) return false;
+
+    auto pattern = (URegularExpression *)impl;
+
+    UErrorCode e = U_ZERO_ERROR;
+    
+    uregex_setText(pattern, str.impl->str, str.impl->size, &e);
+    if (!check_uerror(e)) return false;
+
+    uregex_reset(pattern, 0, &e);
+    if (!check_uerror(e)) return false;
+
+    size_t added = 0;
+
+    int32_t current = 0;
+    while (true) {
+        bool found = uregex_findNext(pattern, &e);
+        if (!check_uerror(e)) return false;
+        
+        if (!found) break;
+        
+        int32_t start = uregex_start(pattern, 0, &e);
+        if (!check_uerror(e)) return false;
+        int32_t end = uregex_end(pattern, 0, &e);
+        if (!check_uerror(e)) return false;
+
+        /**
+         * str.impl->str
+         * |
+         * v
+         * text_text_text_text_text_text
+         *    ^   ^~~~~~^
+         *    |   start end
+         *  current
+        */
+        
+        if (current < start) {
+            out.emplace_back(str.impl->str + current, start - current);
+            added += 1;
+        }
+
+        out.emplace_back(str.impl->str + start, end - start);
+        added += 1;
+
+        current = end;
+    }
+
+    if (current < str.impl->size) {
+        out.emplace_back(str.impl->str + current, str.impl->size - current);
+        added += 1;
+    }
+
+    return added;
 }
 
 } // namespace berts::unicode

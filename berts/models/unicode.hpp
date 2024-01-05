@@ -5,6 +5,7 @@
 #include <functional>
 #include <ranges>
 #include <string>
+#include <vector>
 
 namespace berts::unicode {
 
@@ -60,9 +61,9 @@ struct ustr {
     std::strong_ordering operator<=>(const ustr &rhs) const;
 
     ustr operator+(const ustr &rhs) const;
-    
+
     ustr &operator+=(const ustr &rhs);
-    
+
     bool ok() const;
 
     void dispose();
@@ -80,6 +81,18 @@ struct ustr {
     void pack_to(unic_t *buffer) const;
 
     unic_t operator[](size_t index) const;
+
+    //
+    // string operations
+    //
+
+    bool starts_with(const ustr &prefix) const;
+
+    bool ends_with(const ustr &suffix) const;
+
+    //
+    // iterators
+    //
 
     unic_t *begin() const;
 
@@ -156,6 +169,27 @@ struct ustr {
     }
 
     ustr_impl *impl;
+};
+
+struct regex {
+    regex();
+    regex(const ustr &pattern);
+    regex(const regex &) = delete;
+    regex(regex &&other);
+
+    ~regex();
+
+    regex &operator=(const regex &) = delete;
+    regex &operator=(regex &&);
+
+    bool test(const ustr &str);
+    size_t split(const ustr &str, std::vector<ustr> &out);
+
+    void *impl;
+
+    operator bool() const noexcept {
+        return impl;
+    }
 };
 
 } // namespace berts::unicode
