@@ -11,7 +11,7 @@
 #include "berts/models/log.hpp"
 #include "berts/models/utils.hpp"
 
-namespace berts::bert {
+namespace berts::internal {
 
 template <typename T>
 concept Vocab = requires(T &obj, berts_context *ctx, ggml_context *ggml, gguf_context *gguf, const std::string &str) {
@@ -163,7 +163,7 @@ struct vocab_base2 : public vocab_base<vocab_base2<Self>> {
 };
 
 template <Vocab VocabType, Weights WeightsType>
-struct base : public internal::model {
+struct base : public model {
     using vocab_t = VocabType;
     using weights_t = WeightsType;
     using inherited = base<vocab_t, weights_t>;
@@ -175,15 +175,13 @@ struct base : public internal::model {
     std::unique_ptr<vocab_t> vocab;
 
     base(ggml_type type)
-        : internal::model(type)
+        : model(type)
         , weights()
         , vocab(new vocab_t{}) {}
 
     ~base() override = default;
 
     bool init_vocab(berts_context *ctx) override {
-        using namespace berts::internal;
-
         log::info("loading vocab");
 
         if (!check_ctx(ctx)) {
@@ -259,8 +257,6 @@ struct base : public internal::model {
     }
 
     bool init_weight(berts_context *ctx) override {
-        using namespace berts::internal;
-
         log::info("initializing weights");
 
         if (!check_ctx(ctx)) {
@@ -329,9 +325,9 @@ struct base : public internal::model {
                           const std::string &text,
                           std::vector<bert_token_t> &out) const override = 0;
 
-    virtual internal::ggml_size_info get_context_buffer_size(
+    virtual ggml_size_info get_context_buffer_size(
         size_t token_count,
-        const internal::hparams &hparams,
+        const hparams &hparams,
         const berts_eval_info &cond) const = 0;
 
     bool eval(berts_context *ctx,
@@ -340,8 +336,6 @@ struct base : public internal::model {
               const berts_eval_info &cond,
               float *out,
               size_t &out_count) const override {
-        using namespace berts::internal;
-
         log::info("start evaluating {}", model_name());
 
         if (!check_model(ctx)) {
@@ -352,7 +346,7 @@ struct base : public internal::model {
         // check inputs
         //
 
-        internal::hparams hparams{};
+        hparams hparams{};
         get_hparams(ctx, &hparams);
 
         const auto n = tokens.size();
@@ -489,7 +483,7 @@ struct base : public internal::model {
     }
 
     virtual bool build_graph(ggml_ctx &ctx,
-                             const internal::hparams &hparams,
+                             const hparams &hparams,
                              const berts_eval_info &cond,
                              const std::vector<bert_token_t> &tokens,
                              const std::vector<bert_segment_t> &segments) const = 0;

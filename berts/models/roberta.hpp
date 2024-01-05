@@ -17,7 +17,7 @@ struct special_tokens {
     bert_token_t unk;
 };
 
-struct vocab : public bert::vocab_base2<vocab> {
+struct vocab : public internal::vocab_base2<vocab> {
     special_tokens special;
     std::unique_ptr<bpe> bpe;
 
@@ -35,7 +35,7 @@ struct vocab : public bert::vocab_base2<vocab> {
     bool init(berts_context *ctx, ggml_context *ggml, gguf_context *gguf);
 };
 
-struct model : public bert::base<vocab, bert::weights> {
+struct model : public internal::base<vocab, bert::weights> {
     using inherited::inherited;
 
     std::string model_name() const override {

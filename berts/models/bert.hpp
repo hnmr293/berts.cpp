@@ -56,7 +56,7 @@ struct special_tokens {
     bert_token_t unk;
 };
 
-struct vocab : public vocab_base2<vocab> {
+struct vocab : public internal::vocab_base2<vocab> {
     tokenizer_info cond;
     special_tokens special;
     std::unique_ptr<berts::trie::trie> trie;
@@ -81,7 +81,7 @@ struct vocab : public vocab_base2<vocab> {
     void clear();
 };
 
-static_assert(Vocab<vocab>);
+static_assert(internal::Vocab<vocab>);
 
 struct weights {
     using self_type = weights;
@@ -128,7 +128,7 @@ struct weights {
     bool init(berts_context *ctx, ggml_context *ggml, gguf_context *gguf);
 };
 
-struct model : public base<vocab, weights> {
+struct model : public internal::base<vocab, weights> {
     using inherited::inherited;
 
     std::string model_name() const override {
