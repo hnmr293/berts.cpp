@@ -350,12 +350,19 @@ bool model::tokenize(const berts_context *ctx,
     return roberta::tokenize(*vocab, text, never_split, out);
 }
 
-bool model::eval(berts_context *ctx,
-                 const std::vector<bert_token_t> &tokens,
-                 const std::vector<bert_segment_t> &segments,
-                 const berts_eval_info &cond,
-                 float *out,
-                 size_t &out_count) const {
+internal::ggml_size_info
+model::get_context_buffer_size(size_t token_count,
+                               const internal::hparams &hparams,
+                               const berts_eval_info &cond) const {
+    internal::ggml_size_info size{};
+    return size;
+}
+
+bool model::build_graph(ggml_ctx &ctx,
+                        const internal::hparams &hparams,
+                        const berts_eval_info &cond,
+                        const std::vector<bert_token_t> &tokens,
+                        const std::vector<bert_segment_t> &segments) const {
     return false;
 }
 

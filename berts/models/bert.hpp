@@ -85,7 +85,7 @@ static_assert(Vocab<vocab>);
 
 struct weights {
     using self_type = weights;
-    
+
     struct transformer_block {
         // attn
         ggml_tensor *q_w = nullptr;
@@ -115,7 +115,7 @@ struct weights {
         ggml_tensor *ln_out_w = nullptr;
         ggml_tensor *ln_out_b = nullptr;
     };
-    
+
     ggml_tensor *token_embedding = nullptr;
     ggml_tensor *segment_embedding = nullptr;
     ggml_tensor *position_embedding = nullptr;
@@ -131,16 +131,24 @@ struct weights {
 struct model : public base<vocab, weights> {
     using inherited::inherited;
 
+    std::string model_name() const override {
+        return "BERT";
+    }
+
     bool tokenize(const berts_context *ctx,
                   const std::string &text,
                   std::vector<bert_token_t> &out) const override;
 
-    bool eval(berts_context *ctx,
-              const std::vector<bert_token_t> &tokens,
-              const std::vector<bert_segment_t> &segments,
-              const berts_eval_info &cond,
-              float *out,
-              size_t &out_count) const override;
+    internal::ggml_size_info get_context_buffer_size(
+        size_t token_count,
+        const internal::hparams &hparams,
+        const berts_eval_info &cond) const override;
+
+    bool build_graph(ggml_ctx &ctx,
+                     const internal::hparams &hparams,
+                     const berts_eval_info &cond,
+                     const std::vector<bert_token_t> &tokens,
+                     const std::vector<bert_segment_t> &segments) const override;
 };
 
 } // namespace berts::bert

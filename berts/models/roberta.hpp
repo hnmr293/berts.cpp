@@ -38,16 +38,24 @@ struct vocab : public bert::vocab_base2<vocab> {
 struct model : public bert::base<vocab, bert::weights> {
     using inherited::inherited;
 
+    std::string model_name() const override {
+        return "RoBERTa";
+    }
+
     bool tokenize(const berts_context *ctx,
                   const std::string &text,
                   std::vector<bert_token_t> &out) const override;
 
-    bool eval(berts_context *ctx,
-              const std::vector<bert_token_t> &tokens,
-              const std::vector<bert_segment_t> &segments,
-              const berts_eval_info &cond,
-              float *out,
-              size_t &out_count) const override;
+    internal::ggml_size_info get_context_buffer_size(
+        size_t token_count,
+        const internal::hparams &hparams,
+        const berts_eval_info &cond) const override;
+
+    bool build_graph(ggml_ctx &ctx,
+                     const internal::hparams &hparams,
+                     const berts_eval_info &cond,
+                     const std::vector<bert_token_t> &tokens,
+                     const std::vector<bert_segment_t> &segments) const override;
 };
 
 } // namespace berts::roberta

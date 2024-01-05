@@ -606,52 +606,11 @@ bool model::tokenize(const berts_context *ctx, const std::string &text, std::vec
 // model::eval
 //
 
-static inline std::string pool_type_str(berts_pool_type type) {
-    switch (type) {
-        using enum berts_pool_type;
-    case BERTS_POOL_NONE: return "none";
-    case BERTS_POOL_CLS: return "cls";
-    case BERTS_POOL_AVG: return "avg";
-    case BERTS_POOL_MAX: return "max";
-    default: return "";
-    }
-}
-
-static inline size_t get_data_size(ggml_type type, size_t ne0, size_t ne1 = 1, size_t ne2 = 1, size_t ne3 = 1) {
-    size_t data_size = ggml_type_size(type) * (ne0 / ggml_blck_size(type));
-    data_size *= ne1;
-    data_size *= ne2;
-    data_size *= ne3;
-    return data_size;
-}
-
-static inline size_t get_tensor_size(ggml_type type, size_t ne0, size_t ne1 = 1, size_t ne2 = 1, size_t ne3 = 1) {
-    size_t size = get_data_size(type, ne0, ne1, ne2, ne3);
-    size += GGML_TENSOR_SIZE;
-    size = GGML_PAD(size, GGML_MEM_ALIGN);
-    size += GGML_OBJECT_SIZE;
-    return size;
-}
-
-struct bert_size_info {
-    size_t emb;
-    size_t layer;
-    size_t pooler;
-    size_t graph;
-
-    size_t layers(size_t n) const noexcept {
-        return layer * n;
-    }
-
-    size_t calc(size_t layers) const noexcept {
-        return emb + this->layers(layers) + pooler + graph;
-    }
-};
-
-static inline bert_size_info get_bert_size(size_t token_count,
-                                           const hparams &hparams,
-                                           const berts_eval_info &cond) {
-    bert_size_info size{};
+internal::ggml_size_info
+model::get_context_buffer_size(size_t token_count,
+                               const internal::hparams &hparams,
+                               const berts_eval_info &cond) const {
+    internal::ggml_size_info size{};
 
     const size_t hidden_dim = hparams.hidden_dim;
     const size_t n_layers = hparams.n_layers;
@@ -801,105 +760,11 @@ static inline bert_size_info get_bert_size(size_t token_count,
     return size;
 }
 
-bool model::eval(berts_context *ctx,
-                 const std::vector<bert_token_t> &tokens,
-                 const std::vector<bert_segment_t> &segments,
-                 const berts_eval_info &cond,
-                 float *out,
-                 size_t &out_count) const {
-    static_assert(sizeof(bert_token_t) == sizeof(int32_t));
-    static_assert(sizeof(bert_segment_t) == sizeof(int32_t));
-
-    log::info("start evaluating BERT");
-
-    if (!check_model(ctx)) {
-        return false;
-    }
-
-    hparams hparams{};
-    get_hparams(ctx, &hparams);
-    auto eps = hparams.eps;
-
-    const auto n = tokens.size();
-
-    log::debug("  #tokens = {}", n);
-
-    if ((size_t)hparams.max_tokens < n) {
-        log::error("too many tokens ({}) for this model ({})", n, hparams.max_tokens);
-        return false;
-    }
-
-    if (n != segments.size()) {
-        log::error("segment count ({}) is not match for tokens ({})", segments.size(), n);
-        return false;
-    }
-
-    for (const auto segm : segments) {
-        if (hparams.segment_count <= (bert_int)segm) {
-            log::error("invalid segment value: {} (allowed = 0..{})", segm, hparams.segment_count - 1);
-            return false;
-        }
-    }
-
-    const size_t input_out_count = out_count;
-    size_t needed_out_count;
-    switch (cond.pool_type) {
-        using enum berts_pool_type;
-    case BERTS_POOL_NONE: needed_out_count = hparams.hidden_dim * n; break;
-    case BERTS_POOL_CLS: needed_out_count = hparams.hidden_dim * 1; break;
-    case BERTS_POOL_AVG: needed_out_count = hparams.hidden_dim * 1; break;
-    case BERTS_POOL_MAX: needed_out_count = hparams.hidden_dim * 1; break;
-    default:
-        log::error("unknown pooling type: {}", (int)cond.pool_type);
-        return false;
-    }
-
-    log::when(BERTS_LOG_INFO, [&]() {
-        log::info(
-            "  berts_eval_info {{\n"
-            "    output_layer = {};\n"
-            "    pool_type = {};\n"
-            "    n_threads = {}\n"
-            "  }}",
-            cond.output_layer,
-            pool_type_str(cond.pool_type),
-            cond.n_threads);
-        log::debug("  output size = {}", needed_out_count);
-        log::debug("    given     = {}", input_out_count);
-    });
-
-    out_count = needed_out_count;
-
-    if (!out) {
-        log::info("finish evaluating BERT (dry run)");
-        return true;
-    }
-
-    const auto n_layers = hparams.n_layers;
-    auto last_layer_index = cond.output_layer;
-    if (last_layer_index < 0) {
-        if (n_layers < -last_layer_index) {
-            log::error("invalid output_layer_value: {} (expected: {}..{})", last_layer_index, -n_layers, n_layers);
-            return false;
-        }
-        last_layer_index += n_layers + 1; // -24 -> 1
-    } else {
-        if (hparams.n_layers < last_layer_index) {
-            log::error("invalid output_layer_value: {} (expected: {}..{})", last_layer_index, -n_layers, n_layers);
-            return false;
-        }
-    }
-
-    auto size = get_bert_size(n, hparams, cond);
-    ggml_init_params init{
-        /* .mem_size   = */ size.calc(last_layer_index),
-        /* .mem_buffer = */ nullptr,
-        /* .no_alloc   = */ false,
-    };
-    ggml_ctx ggml{init};
-
-    log::debug("  context buffer size = {}", init.mem_size);
-
+bool model::build_graph(ggml_ctx &ggml,
+                        const internal::hparams &hparams,
+                        const berts_eval_info &cond,
+                        const std::vector<bert_token_t> &tokens,
+                        const std::vector<bert_segment_t> &segments) const {
 #ifdef BERTS_DEBUG
     struct ggml_context_debug {
         size_t mem_size;
@@ -931,6 +796,14 @@ bool model::eval(berts_context *ctx,
             }
         }
     } &cc = *(ggml_context_debug *)ggml.ctx;
+#endif
+
+    const auto n = tokens.size();
+    auto eps = hparams.eps;
+    auto last_layer_index = cond.output_layer;
+
+#ifdef BERTS_DEBUG
+    internal::ggml_size_info size = get_context_buffer_size(n, hparams, cond);
 #endif
 
     //
@@ -1091,41 +964,6 @@ RUN_COMPUTE:
 #ifdef BERTS_DEBUG
     cc.check(size.emb + size.layers(last_layer_index) + size.pooler, "pooler");
 #endif
-
-    // run the computation
-    ggml_cgraph *gf = ggml_new_graph(ggml); // allocated in ggml_context
-    ggml_build_forward_expand(gf, x);
-    ggml_cplan cplan = ggml_graph_plan(gf, cond.n_threads);
-
-    std::unique_ptr<uint8_t[]> work_data{};
-    if (cplan.work_size != 0) {
-        work_data.reset(new uint8_t[cplan.work_size]);
-        cplan.work_data = work_data.get();
-    }
-
-    ggml_graph_compute(gf, &cplan);
-
-#ifdef BERTS_DEBUG
-    cc.check(size.calc(last_layer_index), "run");
-#endif
-
-#ifdef GGML_PERF
-    log::when(BERTS_LOG_DEBUG, [=]() {
-        ggml_graph_print(gf);
-    });
-#endif
-
-    //
-    // output
-    //
-
-    {
-        float *data = ggml_get_data_f32(x);
-        size_t count = std::min(input_out_count, needed_out_count);
-        std::copy(data, data + count, out);
-    }
-
-    log::info("finish evaluating BERT");
 
     return true;
 }
