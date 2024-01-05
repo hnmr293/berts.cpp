@@ -498,7 +498,7 @@ ustr ustr::rstrip() const {
     }
 
     auto size = end - it;
-    return {str.data(), size};
+    return {str.data(), (size_t)size};
 }
 
 unic_t *ustr::begin() const {
