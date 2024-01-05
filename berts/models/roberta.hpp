@@ -3,6 +3,7 @@
 #include <memory>
 #include <vector>
 #include "berts/models/bert.hpp"
+#include "berts/models/bpe.hpp"
 
 namespace berts::roberta {
 
@@ -18,6 +19,7 @@ struct special_tokens {
 
 struct vocab : public bert::vocab_base2<vocab> {
     special_tokens special;
+    std::unique_ptr<bpe> bpe;
 
     vocab();
     vocab(size_t n);
