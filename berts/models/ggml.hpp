@@ -52,6 +52,19 @@ static inline size_t get_tensor_size(ggml_type type, size_t ne0, size_t ne1 = 1,
     return size;
 }
 
+static inline ggml_tensor *bert_dense(ggml_context *ctx, ggml_tensor *x, ggml_tensor *w, ggml_tensor *b) {
+    x = ggml_mul_mat(ctx, w, x);
+    x = ggml_add(ctx, x, ggml_repeat(ctx, b, x));
+    return x;
+}
+
+static inline ggml_tensor *bert_layer_norm(ggml_context *ctx, ggml_tensor *x, ggml_tensor *ln_w, ggml_tensor *ln_b, float eps) {
+    x = ggml_norm(ctx, x, eps);
+    return ggml_add(ctx,
+                    ggml_mul(ctx, ggml_repeat(ctx, ln_w, x), x),
+                    ggml_repeat(ctx, ln_b, x));
+}
+
 
 
 }
