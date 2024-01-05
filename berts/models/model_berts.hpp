@@ -10,7 +10,7 @@ struct model_berts : public model_base<VocabType, WeightsType> {
     using inherited::inherited;
 
     ~model_berts() override = default;
-    
+
     // name of model such as "BERT", "RoBERTa" and so on
     virtual std::string model_name() const = 0;
 
@@ -160,10 +160,11 @@ struct model_berts : public model_base<VocabType, WeightsType> {
 
         ggml_graph_compute(gf, &cplan);
 
-// #ifdef BERTS_DEBUG
-//     cc.check(size.calc(last_layer_index), "run");
-// #endif
-//
+#ifdef BERTS_DEBUG
+        auto &cc = ggml_context_for_debug::from(ggml.ctx);
+        cc.check(size.calc(last_layer_index), "run");
+#endif
+
 #ifdef GGML_PERF
         log::when(BERTS_LOG_DEBUG, [=]() {
             ggml_graph_print(gf);
@@ -186,4 +187,4 @@ struct model_berts : public model_base<VocabType, WeightsType> {
     }
 };
 
-}
+} // namespace berts::internal

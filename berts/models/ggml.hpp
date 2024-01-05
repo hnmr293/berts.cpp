@@ -4,9 +4,10 @@
  * ggml utilities
  */
 
-#include "berts/berts.h"
-#include "ggml/ggml.h"
 #include <string>
+#include "berts/berts.h"
+#include "berts/models/log.hpp"
+#include "ggml/ggml.h"
 
 namespace berts::internal {
 
@@ -25,7 +26,43 @@ struct ggml_size_info {
     }
 };
 
-static inline std::string pool_type_str(berts_pool_type type) {
+struct ggml_context_for_debug {
+    size_t mem_size;
+    void *mem_buffer;
+    bool mem_buffer_owned;
+    bool no_alloc;
+    bool no_alloc_save; // this is used to save the no_alloc state when using scratch buffers
+
+    int n_objects;
+
+    struct ggml_object *objects_begin;
+    struct ggml_object *objects_end;
+
+    struct ggml_scratch scratch;
+    struct ggml_scratch scratch_save;
+
+    static const ggml_context_for_debug &from(const ggml_context *ctx) {
+        return *(const ggml_context_for_debug *)ctx;
+    }
+
+    size_t current() const noexcept {
+        const size_t cur_offs = objects_end ? objects_end->offs : 0;
+        const size_t cur_size = objects_end ? objects_end->size : 0;
+        const size_t cur_end = cur_offs + cur_size;
+        return cur_end;
+    }
+
+    void check(size_t expected, const std::string &msg) const {
+        const size_t cur = current();
+        if (cur != expected) {
+            log::error("size mismatch ({}): expected = {}, but {}", msg, expected, cur);
+            GGML_ASSERT(false && "size mismatch");
+        }
+    }
+};
+
+static inline std::string
+pool_type_str(berts_pool_type type) {
     switch (type) {
         using enum berts_pool_type;
     case BERTS_POOL_NONE: return "none";
@@ -65,6 +102,4 @@ static inline ggml_tensor *bert_layer_norm(ggml_context *ctx, ggml_tensor *x, gg
                     ggml_repeat(ctx, ln_b, x));
 }
 
-
-
-}
+} // namespace berts::internal

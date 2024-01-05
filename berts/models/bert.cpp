@@ -766,36 +766,7 @@ bool model::build_graph(ggml_ctx &ggml,
                         const std::vector<bert_token_t> &tokens,
                         const std::vector<bert_segment_t> &segments) const {
 #ifdef BERTS_DEBUG
-    struct ggml_context_debug {
-        size_t mem_size;
-        void *mem_buffer;
-        bool mem_buffer_owned;
-        bool no_alloc;
-        bool no_alloc_save; // this is used to save the no_alloc state when using scratch buffers
-
-        int n_objects;
-
-        struct ggml_object *objects_begin;
-        struct ggml_object *objects_end;
-
-        struct ggml_scratch scratch;
-        struct ggml_scratch scratch_save;
-
-        size_t current() const noexcept {
-            const size_t cur_offs = objects_end ? objects_end->offs : 0;
-            const size_t cur_size = objects_end ? objects_end->size : 0;
-            const size_t cur_end = cur_offs + cur_size;
-            return cur_end;
-        }
-
-        void check(size_t expected, const std::string &msg) const {
-            const size_t cur = current();
-            if (cur != expected) {
-                log::error("size mismatch ({}): expected = {}, but {}", msg, expected, cur);
-                GGML_ASSERT(false && "size mismatch");
-            }
-        }
-    } &cc = *(ggml_context_debug *)ggml.ctx;
+    auto &cc = ggml_context_for_debug::from(ggml.ctx);
 #endif
 
     const auto n = tokens.size();
