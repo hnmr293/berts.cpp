@@ -1,4 +1,5 @@
 #include "berts/models/unicode.hpp"
+
 #include <algorithm>
 #include <cstring>
 #include <iterator>
@@ -6,6 +7,7 @@
 #include <string>
 #include <type_traits>
 #include <vector>
+#include "berts/models/log.hpp"
 
 #ifdef _WIN32
 #include <icu.h>
@@ -17,6 +19,14 @@
 #endif
 
 namespace berts::unicode {
+
+static inline bool check_uerror(UErrorCode e) {
+    if (U_FAILURE(e)) {
+        log::error("icu error: {}", u_errorName(e));
+        return false;
+    }
+    return true;
+}
 
 struct ustr_impl {
     // in ICU lib, int32_t is used as a size type
@@ -445,7 +455,7 @@ unic_t *ustr::end() const {
 bool normalize_nfc(const ustr &in, ustr &out) {
     UErrorCode e = U_ZERO_ERROR;
     auto k = unorm2_getNFCInstance(&e);
-    if (!U_SUCCESS(e)) return false;
+    if (!check_uerror(e)) return false;
 
     UErrorCode e1 = U_ZERO_ERROR;
     auto len = unorm2_normalize(k, in.impl->str, in.impl->size, nullptr, 0, &e1);
@@ -453,13 +463,13 @@ bool normalize_nfc(const ustr &in, ustr &out) {
 
     unorm2_normalize(k, in.impl->str, in.impl->size, out.impl->str, out.impl->size, &e);
 
-    return U_SUCCESS(e);
+    return check_uerror(e);
 }
 
 bool normalize_nfd(const ustr &in, ustr &out) {
     UErrorCode e = U_ZERO_ERROR;
     auto k = unorm2_getNFDInstance(&e);
-    if (!U_SUCCESS(e)) return false;
+    if (!check_uerror(e)) return false;
 
     UErrorCode e1 = U_ZERO_ERROR;
     auto len = unorm2_normalize(k, in.impl->str, in.impl->size, nullptr, 0, &e1);
@@ -467,7 +477,7 @@ bool normalize_nfd(const ustr &in, ustr &out) {
 
     unorm2_normalize(k, in.impl->str, in.impl->size, out.impl->str, out.impl->size, &e);
 
-    return U_SUCCESS(e);
+    return check_uerror(e);
 }
 
 bool is_whitespace(unic32_t c) {
