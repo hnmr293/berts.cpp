@@ -973,17 +973,6 @@ bool model::eval(berts_context *ctx,
     const auto attn_dim = hparams.hidden_dim / n_head;
     // hidden_dim := n_head * attn_dim
 
-    const auto set_name = [](ggml_tensor *t, size_t index, const char *base) {
-#ifdef BERTS_DEBUG
-        auto name = berts::fmt::fmt("{}_{}", base, index);
-        ggml_set_name(t, name.c_str());
-#else
-        GGML_UNUSED(t);
-        GGML_UNUSED(index);
-        GGML_UNUSED(base);
-#endif
-    };
-
     // * BertEncoder
     for (const auto [layer_index, layer] : weights.layers | std::views::enumerate) {
         // ** BertLayer
@@ -997,15 +986,15 @@ bool model::eval(berts_context *ctx,
         {
             // **** BertSelfAttention
             auto q = bert_dense(ggml, x, layer.q_w, layer.q_b);
-            set_name(q, layer_index, "q");
+            ggml_format_name(q, "q_%lld", layer_index);
             q = ggml_reshape_4d(ggml, q, attn_dim, n_head, n, 1); // (1,N,head,dim)
 
             auto k = bert_dense(ggml, x, layer.k_w, layer.k_b);
-            set_name(k, layer_index, "k");
+            ggml_format_name(k, "k_%lld", layer_index);
             k = ggml_reshape_4d(ggml, k, attn_dim, n_head, n, 1); // (1,N,head,dim)
 
             auto v = bert_dense(ggml, x, layer.v_w, layer.v_b);
-            set_name(v, layer_index, "v");
+            ggml_format_name(v, "v_%lld", layer_index);
             v = ggml_reshape_4d(ggml, v, attn_dim, n_head, n, 1); // (1,N,head,dim)
 
             // (1,N,head,dim) -> (1,head,N,dim)
@@ -1018,21 +1007,21 @@ bool model::eval(berts_context *ctx,
             // (head,N,N)
             const auto scale = 1.0f / std::sqrt((float)attn_dim);
             auto sim = ggml_soft_max_ext(ggml, ggml_mul_mat(ggml, k, q), nullptr, scale);
-            set_name(sim, layer_index, "sim");
+            ggml_format_name(sim, "sim_%lld", layer_index);
 
             auto res = ggml_mul_mat(ggml, v, sim);                      // (1,head,N,dim)
             res = ggml_cont(ggml, ggml_permute(ggml, res, 0, 2, 1, 3)); // (1,N,head,dim)
 
             // (N,hidden_dim)
             res = ggml_cpy(ggml, res, ggml_new_tensor_2d(ggml, GGML_TYPE_F32, hparams.hidden_dim, n)); // (N,hidden_dim)
-            set_name(res, layer_index, "attn");
+            ggml_format_name(res, "attn_%lld", layer_index);
 
             // output
             // **** BertSelfOutput
             res = bert_dense(ggml, res, layer.ff_w, layer.ff_b);
             x = ggml_add(ggml, x, res);
             x = bert_layer_norm(ggml, x, layer.ln_ff_w, layer.ln_ff_b, eps);
-            set_name(x, layer_index, "ff");
+            ggml_format_name(x, "ff_%lld", layer_index);
         }
 
         // intermediate
@@ -1053,7 +1042,7 @@ bool model::eval(berts_context *ctx,
             res = bert_dense(ggml, res, layer.o_w, layer.o_b);
             x = ggml_add(ggml, x, res);
             x = bert_layer_norm(ggml, x, layer.ln_out_w, layer.ln_out_b, eps);
-            set_name(x, layer_index, "intm");
+            ggml_format_name(x, "intm_%lld", layer_index);
         }
     }
 
@@ -1071,6 +1060,7 @@ bool model::eval(berts_context *ctx,
         using enum berts_pool_type;
     case BERTS_POOL_NONE:
         // return non-pooled tensor
+        ggml_set_name(x, "out");
         goto RUN_COMPUTE;
     case BERTS_POOL_CLS:
         // retrieve first token (hidden_dim,) of (n,hidden_dim)
@@ -1094,6 +1084,7 @@ bool model::eval(berts_context *ctx,
 
     x = bert_dense(ggml, x, weights.pool_w, weights.pool_b);
     x = ggml_tanh(ggml, x);
+    ggml_set_name(x, "out");
 
 RUN_COMPUTE:
 
