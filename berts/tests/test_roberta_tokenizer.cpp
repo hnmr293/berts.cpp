@@ -130,7 +130,7 @@ int main() {
         assert(tokens[5] == 50264); // "<mask>"
         assert(tokens[6] == 313);   // " man"
         assert(tokens[7] == 4);     // "."
-        assert(tokens[8] == 102);   // "</s>"
+        assert(tokens[8] == 2);     // "</s>"
     }
 
     {
