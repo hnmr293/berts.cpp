@@ -66,9 +66,9 @@ struct merge_t {
 
     std::strong_ordering operator<=>(const merge_t &rhs) const noexcept {
         if (rank != rhs.rank) {
-            return rank <=> rhs.rank;
+            return rhs.rank <=> rank;
         } else {
-            return index <=> rhs.index;
+            return rhs.index <=> index;
         }
     }
 };
