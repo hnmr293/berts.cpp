@@ -12,7 +12,7 @@ int main() {
     auto ctx = berts_load_from_file(model_path);
     assert(ctx);
 
-    const std::string text1 = "Hi, I am [MASK] man. How are you?";
+    const std::string text1 = "Hi, I am <mask> man. How are you?";
     size_t size = text1.size();
     std::unique_ptr<bert_token_t[]> tokens{new bert_token_t[size]};
 
