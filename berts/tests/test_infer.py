@@ -5,9 +5,10 @@ import struct
 
 import torch
 from transformers import (
-    BertTokenizer,
-    BertModel,
-    BertConfig,
+    AutoTokenizer,
+    PreTrainedTokenizer,
+    AutoModel,
+    PreTrainedModel,
 )
 
 def xglob(rest: list[str]):
@@ -37,9 +38,9 @@ def parse_args():
     args = ap.parse_args()
     return args
 
-def load_diffusers(repo_id: str, cache_dir: str|None) -> tuple[BertTokenizer, BertModel]:
-    tokenizer = BertTokenizer.from_pretrained(repo_id, cache_dir=cache_dir)
-    model = BertModel.from_pretrained(repo_id, cache_dir=cache_dir)
+def load_diffusers(repo_id: str, cache_dir: str|None) -> tuple[PreTrainedTokenizer, PreTrainedModel]:
+    tokenizer = AutoTokenizer.from_pretrained(repo_id, cache_dir=cache_dir)
+    model = AutoModel.from_pretrained(repo_id, cache_dir=cache_dir)
     return tokenizer, model
 
 def get_diffuser_result(repo_id: str, prompt: str, cache_dir: str|None = None):

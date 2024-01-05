@@ -1,10 +1,15 @@
 #include "berts/models/roberta.hpp"
 
+#include <cmath>
+#include <cstring>
 #include <ranges>
 #include <unordered_map>
 #include <unordered_set>
+#include "berts/models/ggml.hpp"
 #include "berts/models/keys.h"
 #include "berts/models/unicode.hpp"
+
+using namespace berts::internal;
 
 namespace berts::roberta {
 
@@ -350,20 +355,344 @@ bool model::tokenize(const berts_context *ctx,
     return roberta::tokenize(*vocab, text, never_split, out);
 }
 
+// copied from bert.cpp:get_context_buffer_size
 internal::ggml_size_info
 model::get_context_buffer_size(size_t token_count,
                                const internal::hparams &hparams,
                                const berts_eval_info &cond) const {
     internal::ggml_size_info size{};
+
+    const size_t hidden_dim = hparams.hidden_dim;
+    const size_t n_layers = hparams.n_layers;
+    const size_t n_heads = hparams.attn_heads;
+    const size_t intm_dim = hparams.intermediate_dim;
+
+    size.graph += ggml_graph_overhead();
+
+    //
+    // embedding
+    //
+
+    // token emb: tensor_1d I32 (n,)
+    // seg emb  : tensor_1d I32 (n,)
+    // pos emb  : tensor_1d I32 (n,)
+    size.emb += get_tensor_size(GGML_TYPE_I32, token_count) * 3;
+
+    // apply embs: F32 (n,hidden_dim)
+    // ggml_get_rows creates a new tensor with type=F32
+    size.emb += get_tensor_size(GGML_TYPE_F32, hidden_dim, token_count) * 3;
+
+    // add embs: F32 (n,hidden_dim)
+    // ggml_add creates a new tensor with same shape of lhs
+    size.emb += get_tensor_size(GGML_TYPE_F32, hidden_dim, token_count) * 2;
+
+    // layer norm: F32 (n,hidden_dim)
+    // ggml_norm + ggml_add, ggml_mul, ggml_repeat, ggml_repeat
+    // ggml_norm creates a new tensor with same shape of arg
+    // ggml_mul creates a new tensor with same shape of lhs
+    // ggml_repeat creates a new tensor with same shape of rhs
+    size.emb += get_tensor_size(GGML_TYPE_F32, hidden_dim, token_count) * 5;
+
+    //
+    // self-attention
+    //
+
+    // each layer
+    if (n_layers != 0) {
+        // q, k, v
+        // clang-format off
+        size.layer += (
+            // dense + reshape: F32 (1,n,n_heads,attn_dim) [same size as (n,hidden_dim)]
+            // dense = add + mul_mat + repeat
+            // reshape is just a view
+            get_tensor_size(GGML_TYPE_F32, hidden_dim, token_count) + // mul_mat
+            get_tensor_size(GGML_TYPE_F32, hidden_dim, token_count) + // repeat
+            get_tensor_size(GGML_TYPE_F32, hidden_dim, token_count) + // add
+            get_tensor_size(GGML_TYPE_F32, 0)                       + // reshape
+            // permute + cont: F32 q,k (1,n_heads,n,attn_dim) [same size as (n,hidden_dim)]
+            //                 F32 v   (1,n_heads,attn_dim,n) [same size as (n,hidden_dim)]
+            // permute is just a view
+            // cont creates a new tensor with same shape of arg
+            get_tensor_size(GGML_TYPE_F32, hidden_dim, token_count) + // cont
+            get_tensor_size(GGML_TYPE_F32, 0)                         // permute
+        ) * 3;
+        // clang-format on
+
+        // softmax: F32 (1,n_heads,n,n)
+        // mul_mat create a new tensor with the shape (1,n_heads,n,n)
+        // sosftmax create a new tensor with same shape of arg
+        size.layer += get_tensor_size(GGML_TYPE_F32, token_count, token_count, n_heads) * 2;
+
+        // v * sim: F32 (1,n_heads,n,attn_dim) [same size as (n,hidden_dim)]
+        size.layer += get_tensor_size(GGML_TYPE_F32, hidden_dim, token_count);
+
+        // permute + cont: F32 (1,n,n_heads,attn_dim) [same size as (n,hidden_dim)]
+        size.layer += get_tensor_size(GGML_TYPE_F32, 0) + get_tensor_size(GGML_TYPE_F32, hidden_dim, token_count);
+
+        // cpy: F32 (n,hidden_dim)
+        // cpy creates a view of rhs
+        size.layer += get_tensor_size(GGML_TYPE_F32, 0) + get_tensor_size(GGML_TYPE_F32, hidden_dim, token_count);
+
+        // dense
+        // clang-format off
+        size.layer += (
+            get_tensor_size(GGML_TYPE_F32, hidden_dim, token_count) + // mul_mat
+            get_tensor_size(GGML_TYPE_F32, hidden_dim, token_count) + // repeat
+            get_tensor_size(GGML_TYPE_F32, hidden_dim, token_count)   // add
+        );
+        // clang-format on
+
+        // add
+        size.layer += get_tensor_size(GGML_TYPE_F32, hidden_dim, token_count);
+
+        // layer norm
+        size.layer += get_tensor_size(GGML_TYPE_F32, hidden_dim, token_count) * 5;
+
+        //
+        // intermediate
+        //
+
+        // dense
+        size.layer += (get_tensor_size(GGML_TYPE_F32, intm_dim, token_count) + // mul_mat
+                       get_tensor_size(GGML_TYPE_F32, intm_dim, token_count) + // repeat
+                       get_tensor_size(GGML_TYPE_F32, intm_dim, token_count)   // add
+        );
+
+        // gelu
+        // gelu creates a new tensor with same shape of arg
+        size.layer += get_tensor_size(GGML_TYPE_F32, intm_dim, token_count);
+
+        // dense
+        size.layer += (get_tensor_size(GGML_TYPE_F32, hidden_dim, token_count) + // mul_mat
+                       get_tensor_size(GGML_TYPE_F32, hidden_dim, token_count) + // repeat
+                       get_tensor_size(GGML_TYPE_F32, hidden_dim, token_count)   // add
+        );
+
+        // add
+        size.layer += get_tensor_size(GGML_TYPE_F32, hidden_dim, token_count);
+
+        // layer norm
+        size.layer += get_tensor_size(GGML_TYPE_F32, hidden_dim, token_count) * 5;
+    }
+
+    //
+    // pooler
+    //
+
+    switch (cond.pool_type) {
+        using enum berts_pool_type;
+    case BERTS_POOL_NONE:
+        return size;
+    case BERTS_POOL_CLS:
+        // view
+        size.pooler += get_tensor_size(GGML_TYPE_F32, 0); // view
+        break;
+    case BERTS_POOL_AVG:
+    case BERTS_POOL_MAX:
+        size.pooler += get_tensor_size(GGML_TYPE_F32, hidden_dim); // cont
+        break;
+    default:
+        // must not happen!
+        log::error("unknown pooling type: {}", (int)cond.pool_type);
+        size.pooler += 0;
+        break;
+    }
+
+    // dense
+    size.pooler += (get_tensor_size(GGML_TYPE_F32, hidden_dim) + // mul_mat
+                    get_tensor_size(GGML_TYPE_F32, hidden_dim) + // repeat
+                    get_tensor_size(GGML_TYPE_F32, hidden_dim)   // add
+    );
+
+    // tanh
+    size.pooler += get_tensor_size(GGML_TYPE_F32, hidden_dim);
+
     return size;
 }
 
-bool model::build_graph(ggml_ctx &ctx,
+bool model::build_graph(ggml_ctx &ggml,
                         const internal::hparams &hparams,
                         const berts_eval_info &cond,
                         const std::vector<bert_token_t> &tokens,
                         const std::vector<bert_segment_t> &segments) const {
-    return false;
+#ifdef BERTS_DEBUG
+    auto &cc = ggml_context_for_debug::from(ggml.ctx);
+#endif
+
+    const auto n = tokens.size();
+    auto eps = hparams.eps;
+    auto last_layer_index = cond.output_layer;
+
+#ifdef BERTS_DEBUG
+    internal::ggml_size_info size = get_context_buffer_size(n, hparams, cond);
+#endif
+
+    //
+    // embeddings
+    //
+
+    auto token_emb = ggml_new_tensor_1d(ggml, GGML_TYPE_I32, n);
+    std::memcpy(token_emb->data, tokens.data(), n * ggml_element_size(token_emb));
+
+    auto seg_emb = ggml_new_tensor_1d(ggml, GGML_TYPE_I32, n);
+    std::memcpy(seg_emb->data, segments.data(), n * ggml_element_size(seg_emb));
+
+    auto pos_emb = ggml_new_tensor_1d(ggml, GGML_TYPE_I32, n);
+    size_t padding_idx = (size_t)vocab->pad_id();
+    for (size_t i = 0, v = padding_idx + 1; i < n; ++i) {
+        if (tokens[i] == padding_idx) {
+            ggml_set_i32_1d(pos_emb, i, 0);
+        } else {
+            ggml_set_i32_1d(pos_emb, i, v);
+            v += 1;
+        }
+    }
+
+    // x = token_emb + pos_emb + seg_emb
+    auto x = ggml_get_rows(ggml, weights.token_embedding, token_emb);
+    x = ggml_add(ggml, ggml_get_rows(ggml, weights.position_embedding, pos_emb), x);
+    x = ggml_add(ggml, ggml_get_rows(ggml, weights.segment_embedding, seg_emb), x);
+
+    // x = layer_norm(x)
+    x = bert_layer_norm(ggml, x, weights.ln_w, weights.ln_b, eps);
+
+    // x := (N,hidden_dim)
+    GGML_ASSERT(x->n_dims == 2 || (x->ne[2] == 1 && x->ne[3] == 1));
+    GGML_ASSERT(x->ne[0] == hparams.hidden_dim);
+    GGML_ASSERT((size_t)x->ne[1] == n);
+
+#ifdef BERTS_DEBUG
+    cc.check(size.emb, "emb");
+#endif
+
+    //
+    // encoders
+    //
+
+    const auto n_head = hparams.attn_heads;
+    const auto attn_dim = hparams.hidden_dim / n_head;
+    // hidden_dim := n_head * attn_dim
+
+    // * BertEncoder
+    for (const auto [layer_index, layer] : weights.layers | std::views::enumerate) {
+        // ** BertLayer
+
+        if (last_layer_index <= layer_index) {
+            break;
+        }
+
+        // self-attention
+        // *** BertAttention
+        {
+            // **** BertSelfAttention
+            auto q = bert_dense(ggml, x, layer.q_w, layer.q_b);
+            ggml_format_name(q, "q_%lld", layer_index);
+            q = ggml_reshape_4d(ggml, q, attn_dim, n_head, n, 1); // (1,N,head,dim)
+
+            auto k = bert_dense(ggml, x, layer.k_w, layer.k_b);
+            ggml_format_name(k, "k_%lld", layer_index);
+            k = ggml_reshape_4d(ggml, k, attn_dim, n_head, n, 1); // (1,N,head,dim)
+
+            auto v = bert_dense(ggml, x, layer.v_w, layer.v_b);
+            ggml_format_name(v, "v_%lld", layer_index);
+            v = ggml_reshape_4d(ggml, v, attn_dim, n_head, n, 1); // (1,N,head,dim)
+
+            // (1,N,head,dim) -> (1,head,N,dim)
+            q = ggml_cont(ggml, ggml_permute(ggml, q, 0, 2, 1, 3));
+            k = ggml_cont(ggml, ggml_permute(ggml, k, 0, 2, 1, 3));
+            // (1,N,head,dim) -> (1,head,dim,N)
+            v = ggml_cont(ggml, ggml_permute(ggml, v, 1, 2, 0, 3));
+
+            // sim = softmax(kq / sqrt(attn_dim))
+            // (head,N,N)
+            const auto scale = 1.0f / std::sqrt((float)attn_dim);
+            auto sim = ggml_soft_max_ext(ggml, ggml_mul_mat(ggml, k, q), nullptr, scale);
+            ggml_format_name(sim, "sim_%lld", layer_index);
+
+            auto res = ggml_mul_mat(ggml, v, sim);                      // (1,head,N,dim)
+            res = ggml_cont(ggml, ggml_permute(ggml, res, 0, 2, 1, 3)); // (1,N,head,dim)
+
+            // (N,hidden_dim)
+            res = ggml_cpy(ggml, res, ggml_new_tensor_2d(ggml, GGML_TYPE_F32, hparams.hidden_dim, n)); // (N,hidden_dim)
+            ggml_format_name(res, "attn_%lld", layer_index);
+
+            // output
+            // **** BertSelfOutput
+            res = bert_dense(ggml, res, layer.ff_w, layer.ff_b);
+            x = ggml_add(ggml, x, res);
+            x = bert_layer_norm(ggml, x, layer.ln_ff_w, layer.ln_ff_b, eps);
+            ggml_format_name(x, "ff_%lld", layer_index);
+        }
+
+        // intermediate
+        {
+            // *** BertIntermediate
+            auto res = bert_dense(ggml, x, layer.i_w, layer.i_b);
+            switch (hparams.hidden_act) {
+                using enum hidden_act;
+            case BERTS_HIDDEN_ACT_GELU:
+                res = ggml_gelu(ggml, res);
+                break;
+            default:
+                GGML_ASSERT(false && "unknown activation function");
+                // unreachable
+            }
+
+            // *** BertOutput
+            res = bert_dense(ggml, res, layer.o_w, layer.o_b);
+            x = ggml_add(ggml, x, res);
+            x = bert_layer_norm(ggml, x, layer.ln_out_w, layer.ln_out_b, eps);
+            ggml_format_name(x, "intm_%lld", layer_index);
+        }
+    }
+
+    // x := (1,1,n,hidden_dim)
+
+#ifdef BERTS_DEBUG
+    cc.check(size.emb + size.layers(last_layer_index), "layers");
+#endif
+
+    //
+    // pooler
+    //
+
+    switch (cond.pool_type) {
+        using enum berts_pool_type;
+    case BERTS_POOL_NONE:
+        // return non-pooled tensor
+        ggml_set_name(x, "out");
+        goto RUN_COMPUTE;
+    case BERTS_POOL_CLS:
+        // retrieve first token (hidden_dim,) of (n,hidden_dim)
+        x = ggml_view_1d(ggml, x, x->ne[0], 0);
+        break;
+    case BERTS_POOL_AVG:
+        // average pooling
+        x = ggml_pool_2d(ggml, x, GGML_OP_POOL_AVG, 1, n, 1, n, 0, 0);
+        break;
+    case BERTS_POOL_MAX:
+        // max pooling
+        x = ggml_pool_2d(ggml, x, GGML_OP_POOL_MAX, 1, n, 1, n, 0, 0);
+        break;
+    default:
+        // must not happen!
+        log::error("unknown pooling type: {}", (int)cond.pool_type);
+        return false;
+    }
+
+    GGML_ASSERT(x->ne[0] == hparams.hidden_dim && x->ne[1] == 1 && x->ne[2] == 1 && x->ne[3] == 1);
+
+    x = bert_dense(ggml, x, weights.pool_w, weights.pool_b);
+    x = ggml_tanh(ggml, x);
+    ggml_set_name(x, "out");
+
+RUN_COMPUTE:
+
+#ifdef BERTS_DEBUG
+    cc.check(size.emb + size.layers(last_layer_index) + size.pooler, "pooler");
+#endif
+
+    return true;
 }
 
 } // namespace berts::roberta
