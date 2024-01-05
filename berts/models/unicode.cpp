@@ -20,13 +20,15 @@
 
 namespace berts::unicode {
 
-static inline bool check_uerror(UErrorCode e) {
+static inline bool check_uerror_(UErrorCode e, const char *func, int lineno) {
     if (U_FAILURE(e)) {
-        log::error("icu error: {}", u_errorName(e));
+        log::error("icu error: {} [{}:{}]", u_errorName(e), func, lineno);
         return false;
     }
     return true;
 }
+
+#define check_uerror(e) check_uerror_((e), __func__, __LINE__)
 
 struct ustr_impl {
     // in ICU lib, int32_t is used as a size type
