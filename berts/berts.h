@@ -196,7 +196,7 @@ BERTS_API void berts_init_eval_info(berts_eval_info *cond);
 /// @param token_count length of `tokens` and `segments`
 /// @param cond evaluation condition
 /// @param out the buffer where ch-last result will be written, can be NULL; if NULL, needed length will be written to `out_count`
-/// @param out_count input out written length of `out`
+/// @param out_count input and written length of `out`
 BERTS_API bool berts_eval(berts_context *ctx,
                           const bert_token_t *tokens,
                           const bert_segment_t *segments,
@@ -204,6 +204,38 @@ BERTS_API bool berts_eval(berts_context *ctx,
                           const berts_eval_info *cond,
                           float *out,
                           size_t *out_count);
+
+//
+// fill-mask
+//
+
+BERTS_API struct berts_eval_lm_info {
+    // 0<  : retrieve top-k probs in vocab
+    // >=0 : return probs for all vocab
+    bert_int top_k;
+
+    // not implemented
+    // double top_p;
+    
+    // a number of threads used in `eval_lm`
+    // <=0 for default value (= 4)
+    int n_threads;
+};
+
+BERTS_API void berts_init_eval_lm_info(berts_eval_lm_info *cond);
+
+/// @brief compute probs according to input hidden states
+/// @param hidden_states values returned from `berts_eval`
+/// @param hidden_states length (element count) of `hidden_states`
+/// @param cond evaluation condition
+/// @param out the buffer results will be written, can be NULL; if NULL, needed length will be written to `out_count`
+/// @param out_count input and written length of `out`
+BERTS_API bool berts_eval_lm(berts_context *ctx,
+                             const float *hidden_states,
+                             size_t hidden_states_count,
+                             const berts_eval_lm_info *cond,
+                             bert_token_t *out,
+                             size_t *out_count);
 
 //
 // quantization

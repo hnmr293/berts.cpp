@@ -92,6 +92,13 @@ struct model {
                       const berts_eval_info &cond,
                       float *out,
                       size_t &out_count) const = 0;
+
+    virtual bool eval_lm(berts_context *ctx,
+                         const float *hidden_states,
+                         size_t hidden_states_count,
+                         const berts_eval_lm_info &cond,
+                         bert_token_t *out,
+                         size_t &out_count) const = 0;
 };
 
 /// @brief create new `berts_context`

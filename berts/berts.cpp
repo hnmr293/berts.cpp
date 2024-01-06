@@ -238,6 +238,37 @@ bool berts_eval(berts_context *ctx,
     }
 }
 
+//
+// fill-mask
+//
+
+void berts_init_eval_lm_info(berts_eval_lm_info *cond) {
+    if (cond) {
+        cond->top_k = 0;
+        // cond->top_p = 0.0;
+        cond->n_threads = -1;
+    }
+}
+
+bool berts_eval_lm(berts_context *ctx,
+                   const float *hidden_states,
+                   size_t hidden_states_count,
+                   const berts_eval_lm_info *cond,
+                   bert_token_t *out,
+                   size_t *out_count) {
+    BERTS_CHECK_MODEL_OR(false);
+
+    if (!cond) {
+        return false;
+    }
+
+    if (!out_count) {
+        return false;
+    }
+
+    return model.eval_lm(ctx, hidden_states, hidden_states_count, *cond, out, *out_count);
+}
+
 namespace berts {
 
 // berts_context *load_from_stream(std::istream &stream) {

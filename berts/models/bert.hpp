@@ -116,6 +116,7 @@ struct weights {
         ggml_tensor *ln_out_b = nullptr;
     };
 
+    // bert weights
     ggml_tensor *token_embedding = nullptr;
     ggml_tensor *segment_embedding = nullptr;
     ggml_tensor *position_embedding = nullptr;
@@ -124,6 +125,14 @@ struct weights {
     std::vector<transformer_block> layers;
     ggml_tensor *pool_w = nullptr;
     ggml_tensor *pool_b = nullptr;
+
+    // lm head
+    ggml_tensor *lm_dense_w = nullptr; // hidden_dim -> hidden_dim
+    ggml_tensor *lm_dense_b = nullptr;
+    ggml_tensor *lm_ln_w = nullptr;
+    ggml_tensor *lm_ln_b = nullptr;
+    ggml_tensor *lm_decoder_w = nullptr; // hidden_dim -> vocab_size
+    ggml_tensor *lm_decoder_b = nullptr;
 
     bool init(berts_context *ctx, ggml_context *ggml, gguf_context *gguf);
 };
@@ -145,11 +154,23 @@ struct model : public internal::model_berts<vocab, weights> {
         const internal::hparams &hparams,
         const berts_eval_info &cond) const override;
 
+    internal::ggml_size_info get_context_buffer_size_for_lm(
+        size_t input_token_count,
+        size_t output_token_count,
+        const internal::hparams &hparams,
+        const berts_eval_lm_info &cond) const override;
+
     bool build_graph(ggml_ctx &ctx,
                      const internal::hparams &hparams,
                      const berts_eval_info &cond,
                      const std::vector<bert_token_t> &tokens,
                      const std::vector<bert_segment_t> &segments) const override;
+
+    bool build_lm_graph(ggml_ctx &ctx,
+                        const internal::hparams &hparams,
+                        const berts_eval_lm_info &cond,
+                        const float *hidden_states,
+                        size_t hidden_states_count) const override;
 };
 
 } // namespace berts::bert

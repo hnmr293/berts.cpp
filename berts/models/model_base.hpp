@@ -125,7 +125,7 @@ struct vocab_base2 : public vocab_base<vocab_base2<Self>> {
     size_t token_count() const noexcept {
         return id_to_token_.size();
     }
-    
+
     std::string id_to_token(bert_token_t token_id) const noexcept {
         if (id_to_token_.size() <= token_id) {
             log::error("token id {} is not found (max={})", token_id, id_to_token_.size());
@@ -275,7 +275,7 @@ struct model_base : public model {
             return false;
         }
 
-        log::info("finish loading vocab");
+        log::info("finish initializing weights");
         return true;
     }
 
@@ -338,6 +338,13 @@ struct model_base : public model {
               const berts_eval_info &cond,
               float *out,
               size_t &out_count) const = 0;
+
+    bool eval_lm(berts_context *ctx,
+                 const float *hidden_states,
+                 size_t hidden_states_count,
+                 const berts_eval_lm_info &cond,
+                 bert_token_t *out,
+                 size_t &out_count) const = 0;
 };
 
 } // namespace berts::internal

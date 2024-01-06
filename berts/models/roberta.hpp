@@ -52,11 +52,23 @@ struct model : public internal::model_berts<vocab, bert::weights> {
         const internal::hparams &hparams,
         const berts_eval_info &cond) const override;
 
+    internal::ggml_size_info get_context_buffer_size_for_lm(
+        size_t input_token_count,
+        size_t output_token_count,
+        const internal::hparams &hparams,
+        const berts_eval_lm_info &cond) const override;
+
     bool build_graph(ggml_ctx &ctx,
                      const internal::hparams &hparams,
                      const berts_eval_info &cond,
                      const std::vector<bert_token_t> &tokens,
                      const std::vector<bert_segment_t> &segments) const override;
+
+    bool build_lm_graph(ggml_ctx &ctx,
+                        const internal::hparams &hparams,
+                        const berts_eval_lm_info &cond,
+                        const float *hidden_states,
+                        size_t hidden_states_count) const override;
 };
 
 } // namespace berts::roberta

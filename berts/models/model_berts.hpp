@@ -24,6 +24,13 @@ struct model_berts : public model_base<VocabType, WeightsType> {
         const hparams &hparams,
         const berts_eval_info &cond) const = 0;
 
+    // compute ggml_context allocation memory size
+    virtual ggml_size_info get_context_buffer_size_for_lm(
+        size_t input_token_count,
+        size_t output_token_count,
+        const hparams &hparams,
+        const berts_eval_lm_info &cond) const = 0;
+
     // process forward for ggml_new_graph
     // after calling this function,
     // parameter `ctx` must have the tensor named "out"
@@ -32,6 +39,15 @@ struct model_berts : public model_base<VocabType, WeightsType> {
                              const berts_eval_info &cond,
                              const std::vector<bert_token_t> &tokens,
                              const std::vector<bert_segment_t> &segments) const = 0;
+
+    // process forward for ggml_new_graph
+    // after calling this function,
+    // parameter `ctx` must have the tensor named "lm_out"
+    virtual bool build_lm_graph(ggml_ctx &ctx,
+                                const hparams &hparams,
+                                const berts_eval_lm_info &cond,
+                                const float *hidden_states,
+                                size_t hidden_states_count) const = 0;
 
     bool eval(berts_context *ctx,
               const std::vector<bert_token_t> &tokens,
@@ -183,6 +199,129 @@ struct model_berts : public model_base<VocabType, WeightsType> {
 
         log::info("finish evaluating {}", model_name());
 
+        return true;
+    }
+
+    bool eval_lm(berts_context *ctx,
+                 const float *hidden_states,
+                 size_t hidden_states_count,
+                 const berts_eval_lm_info &cond,
+                 bert_token_t *out,
+                 size_t &out_count) const override {
+        log::info("start LM {}", model_name());
+
+        if (!check_model(ctx)) {
+            return false;
+        }
+
+        //
+        // check inputs
+        //
+
+        hparams hparams{};
+        get_hparams(ctx, &hparams);
+
+        auto hidden_dim = hparams.hidden_dim;
+        auto input_tokens = hidden_states_count / hidden_dim;
+
+        if (hidden_states_count % hidden_dim != 0) {
+            log::error(
+                "invalid size of hidden_states, expected to a multiple of {}, but {}",
+                hidden_dim,
+                hidden_states_count);
+            return false;
+        }
+
+        log::debug(
+            "  #tokens = {0}\n"
+            "  hidden_dim = {1}\n",
+            "  input_shape = {0}x{1}",
+            input_tokens,
+            hidden_dim);
+
+        size_t max_tokens = this->vocab->token_count();
+        size_t output_tokens = cond.top_k <= 0
+                                   ? max_tokens
+                                   : std::min((size_t)cond.top_k, max_tokens);
+
+        size_t input_out_count = out_count;
+        size_t needed_out_count = output_tokens * input_tokens;
+
+        out_count = needed_out_count;
+
+        if (!out) {
+            log::info("finish lm {} (dry run)", model_name());
+            return true;
+        }
+
+        ggml_size_info size = get_context_buffer_size_for_lm(
+            input_tokens,
+            output_tokens,
+            hparams,
+            cond);
+        ggml_init_params init{
+            /* .mem_size   = */ size.calc(0),
+            /* .mem_buffer = */ nullptr,
+            /* .no_alloc   = */ false,
+        };
+        ggml_ctx ggml{init};
+
+        log::debug("  context buffer size = {}", init.mem_size);
+
+        if (!build_lm_graph(ggml, hparams, cond, hidden_states, hidden_states_count)) {
+            return false;
+        }
+
+        // run the computation
+        ggml_cgraph *gf = ggml_new_graph(ggml); // allocated in ggml_context
+        ggml_tensor *x = ggml_get_tensor(ggml, "lm_out");
+        if (!x) {
+            log::error("output tensor is not found");
+            return false;
+        }
+        ggml_build_forward_expand(gf, x);
+        ggml_cplan cplan = ggml_graph_plan(gf, cond.n_threads);
+
+        std::unique_ptr<uint8_t[]> work_data{};
+        if (cplan.work_size != 0) {
+            work_data.reset(new uint8_t[cplan.work_size]);
+            cplan.work_data = work_data.get();
+        }
+
+        ggml_graph_compute(gf, &cplan);
+
+#ifdef BERTS_DEBUG
+        auto &cc = ggml_context_for_debug::from(ggml.ctx);
+        cc.check(size.calc(0), "run");
+#endif
+
+#ifdef GGML_PERF
+        log::when(BERTS_LOG_DEBUG, [=]() {
+            ggml_graph_print(gf);
+        });
+#endif
+
+        //
+        // output
+        //
+
+        static_assert(sizeof(decltype(*out)) == sizeof(bert_token_t));
+        static_assert(sizeof(bert_token_t) == sizeof(int32_t));
+        
+        if (cond.top_k <= 0) {
+            bert_token_t *data = (bert_token_t*)ggml_get_data(x);
+            size_t count = std::min(input_out_count, needed_out_count);
+            std::copy(data, data + count, out);
+        } else {
+            const auto k = cond.top_k;
+            bert_token_t *data = (bert_token_t*)ggml_get_data(x);
+            for (size_t token_index = 0; token_index < input_tokens; ++token_index) {
+                bert_token_t *p0 = data + token_index * max_tokens;
+                std::copy(p0, p0 + k, &out[token_index * k]);
+            }
+        }
+
+        log::info("finish LM {}", model_name());
         return true;
     }
 };

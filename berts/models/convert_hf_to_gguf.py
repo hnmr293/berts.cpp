@@ -3,22 +3,12 @@ import os
 import re
 
 import numpy as np
+from torch.nn import Module
 import gguf
-from transformers import (
-    AutoTokenizer,
-    AutoModel,
-    PreTrainedTokenizer,
-    PreTrainedModel,
-    PretrainedConfig,
-    BertTokenizer,
-    BertModel,
-    BertConfig,
-    RobertaTokenizer,
-    RobertaModel,
-    RobertaConfig,
-    DebertaConfig,
-    DebertaV2Config,
-)
+from transformers import *
+import transformers.models.bert.modeling_bert as BERT
+import transformers.models.roberta.modeling_roberta as RoBERTa
+import transformers.models.deberta.modeling_deberta as DeBERTa
 
 
 
@@ -50,29 +40,6 @@ def load_keys(path: str) -> dict[str, str]:
         result[key] = val
     return result
 
-# tensor keys
-BERTS_KEY_BERT_EMB_TOKEN = KEY('token_embedding')
-BERTS_KEY_BERT_EMB_SEGM = KEY('segment_embedding')
-BERTS_KEY_BERT_EMB_POS = KEY('position_embedding')
-BERTS_KEY_BERT_LN_W = KEY('ln_w')
-BERTS_KEY_BERT_LN_B = KEY('ln_b')
-BERTS_KEY_BERT_ENC_N_Q_W = KEY_N('q_w')
-BERTS_KEY_BERT_ENC_N_Q_B = KEY_N('q_b')
-BERTS_KEY_BERT_ENC_N_K_W = KEY_N('k_w')
-BERTS_KEY_BERT_ENC_N_K_B = KEY_N('k_b')
-BERTS_KEY_BERT_ENC_N_V_W = KEY_N('v_w')
-BERTS_KEY_BERT_ENC_N_V_B = KEY_N('v_b')
-BERTS_KEY_BERT_ENC_N_FF_W = KEY_N('ff_w')
-BERTS_KEY_BERT_ENC_N_FF_B = KEY_N('ff_b')
-BERTS_KEY_BERT_ENC_N_LN_FF_W = KEY_N('ln_ff_w')
-BERTS_KEY_BERT_ENC_N_LN_FF_B = KEY_N('ln_ff_b')
-BERTS_KEY_BERT_ENC_N_I_W = KEY_N('i_w')
-BERTS_KEY_BERT_ENC_N_I_B = KEY_N('i_b')
-BERTS_KEY_BERT_ENC_N_O_W = KEY_N('o_w')
-BERTS_KEY_BERT_ENC_N_O_B = KEY_N('o_b')
-BERTS_KEY_BERT_ENC_N_LN_OUT_W = KEY_N('ln_out_w')
-BERTS_KEY_BERT_ENC_N_LN_OUT_B = KEY_N('ln_out_b')
-
 def parse_args():
     ap = argparse.ArgumentParser(prog='convert_hf_to_gguf.py')
     ap.add_argument('-i', '--input-model', help='Repo ID of the model', required=True)
@@ -83,17 +50,21 @@ def parse_args():
     args = ap.parse_args()
     return args
 
-def load_diffusers(repo_id: str, cache_dir: str|None) -> tuple[PreTrainedTokenizer, PreTrainedModel]:
+def load_diffusers(repo_id: str, cache_dir: str|None) -> tuple[PreTrainedTokenizer, PreTrainedModel, Module]:
     tokenizer = AutoTokenizer.from_pretrained(repo_id, cache_dir=cache_dir, use_fast=False)
     model = AutoModel.from_pretrained(repo_id, cache_dir=cache_dir)
+    lm = AutoModelForMaskedLM.from_pretrained(repo_id, cache_dir=cache_dir)
     
-    if not isinstance(tokenizer, (BertTokenizer, RobertaTokenizer)):
-        raise ValueError(f'unsupported class: {tokenizer.__class__.__name__}')
-    
-    if not isinstance(model, (BertModel, RobertaModel)):
+    if isinstance(lm, BertForMaskedLM):
+        lm = lm.cls
+    elif isinstance(lm, RobertaForMaskedLM):
+        lm = lm.lm_head
+    elif isinstance(lm, DebertaForMaskedLM):
+        lm = lm.cls
+    else:
         raise ValueError(f'unsupported class: {model.__class__.__name__}')
 
-    return tokenizer, model
+    return tokenizer, model, lm
 
 def write_bert(w: gguf.GGUFWriter, tokenizer: BertTokenizer, model: BertModel, K: dict[str, str]):
     config: BertConfig = model.config
@@ -375,7 +346,7 @@ def write_merge(w: gguf.GGUFWriter, vocab: dict[str, int], merges: dict[tuple[st
 def convert(repo_id: str, cache_dir: str|None, output_path: str):
     print('start quantization')
     
-    tokenizer, model = load_diffusers(repo_id, cache_dir)
+    tokenizer, model, lm = load_diffusers(repo_id, cache_dir)
 
     print(f'model loaded: {repo_id}')
     
@@ -418,7 +389,11 @@ def convert(repo_id: str, cache_dir: str|None, output_path: str):
     total_size_org = 0
     total_size_new = 0
 
-    for key, tensor in model.state_dict().items():
+    skip_keys = set([
+        'predictions.bias',
+    ])
+    
+    for key, tensor in (model.state_dict() | lm.state_dict()).items():
         tensor: np.ndarray = tensor.squeeze().cpu().numpy()
         n_dims = tensor.ndim
         size_org = tensor.nbytes
@@ -437,6 +412,9 @@ def convert(repo_id: str, cache_dir: str|None, output_path: str):
 
         total_size_org += size_org
         total_size_new += size_new
+
+        if key in skip_keys:
+            continue
 
         w.add_tensor('berts.bert.' + key, tensor)
 

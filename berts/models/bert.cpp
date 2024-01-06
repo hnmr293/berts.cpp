@@ -243,6 +243,14 @@ const char *BERTS_KEY_BERT_ENC_N_LN_OUT_B = KEY_N(encoder.layer, output.LayerNor
 const char *BERTS_KEY_BERT_POOL_W = KEY(pooler.dense.weight);
 const char *BERTS_KEY_BERT_POOL_B = KEY(pooler.dense.bias);
 
+// lm head keys
+const char *BERTS_KEY_BERT_LM_DENSE_W = KEY(predictions.transform.dense.weight);
+const char *BERTS_KEY_BERT_LM_DENSE_B = KEY(predictions.transform.dense.bias);
+const char *BERTS_KEY_BERT_LM_LN_W = KEY(predictions.transform.LayerNorm.weight);
+const char *BERTS_KEY_BERT_LM_LN_B = KEY(predictions.transform.LayerNorm.bias);
+const char *BERTS_KEY_BERT_LM_DECODER_W = KEY(predictions.decoder.weight);
+const char *BERTS_KEY_BERT_LM_DECODER_B = KEY(predictions.decoder.bias);
+
 static inline ggml_tensor *tensor(ggml_context *ctx, const char *key) {
     auto t = ggml_get_tensor(ctx, key);
     if (!t) {
@@ -253,7 +261,8 @@ static inline ggml_tensor *tensor(ggml_context *ctx, const char *key) {
 }
 
 bool weights::init(berts_context *ctx, ggml_context *ggml, gguf_context *gguf) {
-    std::vector<std::string> stored;
+    std::vector<std::string> stored{};
+    std::vector<std::string> not_stored{};
 
 #define GET_TENSOR(dest, key)         \
     do {                              \
@@ -263,6 +272,18 @@ bool weights::init(berts_context *ctx, ggml_context *ggml, gguf_context *gguf) {
         }                             \
         stored.emplace_back((key));   \
         dest = v;                     \
+    } while (0)
+
+#define GET_TENSOR_OPT(dest, key)           \
+    do {                                    \
+        auto v = tensor(ggml, (key));       \
+        if (v) {                            \
+            stored.emplace_back((key));     \
+            dest = v;                       \
+        } else {                            \
+            not_stored.emplace_back((key)); \
+            dest = nullptr;                 \
+        }                                   \
     } while (0)
 
 #define GET_TENSOR_N(dest, key, n)           \
@@ -310,6 +331,13 @@ bool weights::init(berts_context *ctx, ggml_context *ggml, gguf_context *gguf) {
     GET_TENSOR(this->pool_w, BERTS_KEY_BERT_POOL_W);
     GET_TENSOR(this->pool_b, BERTS_KEY_BERT_POOL_B);
 
+    GET_TENSOR_OPT(this->lm_dense_w, BERTS_KEY_BERT_LM_DENSE_W);
+    GET_TENSOR_OPT(this->lm_dense_b, BERTS_KEY_BERT_LM_DENSE_B);
+    GET_TENSOR_OPT(this->lm_ln_w, BERTS_KEY_BERT_LM_LN_W);
+    GET_TENSOR_OPT(this->lm_ln_b, BERTS_KEY_BERT_LM_LN_B);
+    GET_TENSOR_OPT(this->lm_decoder_w, BERTS_KEY_BERT_LM_DECODER_W);
+    GET_TENSOR_OPT(this->lm_decoder_b, BERTS_KEY_BERT_LM_DECODER_B);
+
     // print unused tensors
     log::when(BERTS_LOG_INFO, [&stored, gguf]() {
         const int n_tensors = gguf_get_n_tensors(gguf);
@@ -319,6 +347,17 @@ bool weights::init(berts_context *ctx, ggml_context *ggml, gguf_context *gguf) {
                 if (tensor_name != BERTS_KEY_ALL_VOCAB_SIZE && tensor_name != BERTS_KEY_ALL_VOCAB_DATA) {
                     log::info("  unused {} {}", i, tensor_name);
                 }
+            }
+        }
+    });
+
+    // print skipped tensors
+    log::when(BERTS_LOG_INFO, [&not_stored, gguf]() {
+        const int n_tensors = gguf_get_n_tensors(gguf);
+        for (int i = 0; i < n_tensors; ++i) {
+            const std::string tensor_name{gguf_get_tensor_name(gguf, i)};
+            if (std::find(not_stored.begin(), not_stored.end(), tensor_name) != not_stored.end()) {
+                log::info("  skipped {} {}", i, tensor_name);
             }
         }
     });
@@ -760,6 +799,75 @@ model::get_context_buffer_size(size_t token_count,
     return size;
 }
 
+internal::ggml_size_info model::get_context_buffer_size_for_lm(
+    size_t input_token_count,
+    size_t output_token_count,
+    const internal::hparams &hparams,
+    const berts_eval_lm_info &cond) const {
+    ggml_size_info size{};
+
+    const size_t hidden_dim = hparams.hidden_dim;
+    const size_t n = input_token_count * hidden_dim;
+    const size_t vocab_size = this->vocab->token_count();
+
+    size.graph += ggml_graph_overhead();
+
+    // input: tensor_1d f32 (n,)
+    size.emb += get_tensor_size(GGML_TYPE_F32, n);
+
+    // reshape (n,) -> (hidden_dim, input_token_count)
+    size.emb += get_tensor_size(GGML_TYPE_F32, 0);
+
+    // dense
+    size.emb += (
+        // clang-format off
+        get_tensor_size(GGML_TYPE_F32, hidden_dim, input_token_count) + // mul_mat
+        get_tensor_size(GGML_TYPE_F32, hidden_dim, input_token_count) + // repeat
+        get_tensor_size(GGML_TYPE_F32, hidden_dim, input_token_count)   // add
+        // clang-format on
+    );
+
+    // act
+    switch (hparams.hidden_act) {
+        using enum hidden_act;
+    case BERTS_HIDDEN_ACT_GELU:
+    case BERTS_HIDDEN_ACT_RELU:
+    case BERTS_HIDDEN_ACT_SILU:
+        size.emb += get_tensor_size(GGML_TYPE_F32, hidden_dim, input_token_count);
+        break;
+    case BERTS_HIDDEN_ACT_GELU_NEW:
+        log::error("gelu_new is not implmented yet");
+        size.emb += get_tensor_size(GGML_TYPE_F32, hidden_dim, input_token_count);
+        break;
+    default:
+        log::error("unknown activation function");
+        GGML_ASSERT(false && "unknown activation function");
+        // unreachable
+    }
+
+    // layer norm
+    size.emb += get_tensor_size(GGML_TYPE_F32, hidden_dim, input_token_count) * 5;
+
+    // dense (hidden_dim, input_token_count) -> (output_token_count, input_token_count)
+    size.emb += (
+        // clang-format off
+        get_tensor_size(GGML_TYPE_F32, vocab_size, input_token_count) + // mul_mat
+        get_tensor_size(GGML_TYPE_F32, vocab_size, input_token_count) + // repeat
+        get_tensor_size(GGML_TYPE_F32, vocab_size, input_token_count)   // add
+        // clang-format on
+    );
+
+    // softmax
+    size.emb += get_tensor_size(GGML_TYPE_F32, vocab_size, input_token_count);
+
+    // argsort
+    size.emb += get_tensor_size(GGML_TYPE_I32, vocab_size, input_token_count);
+    
+    return size;
+    (void)cond;
+    (void)output_token_count;
+}
+
 bool model::build_graph(ggml_ctx &ggml,
                         const internal::hparams &hparams,
                         const berts_eval_info &cond,
@@ -937,6 +1045,89 @@ RUN_COMPUTE:
 #endif
 
     return true;
+}
+
+bool model::build_lm_graph(ggml_ctx &ggml,
+                           const hparams &hparams,
+                           const berts_eval_lm_info &cond,
+                           const float *hidden_states,
+                           size_t hidden_states_count) const {
+    if (!weights.lm_dense_w ||
+        !weights.lm_dense_b ||
+        !weights.lm_ln_w ||
+        !weights.lm_ln_b ||
+        !weights.lm_decoder_w ||
+        !weights.lm_decoder_b) {
+        log::error("LM weights are not loaded");
+        return false;
+    }
+
+    // input is already checked in `model_bert::eval_lm`
+
+    size_t input_token_count = hidden_states_count / hparams.hidden_dim;
+    size_t output_token_count = vocab->token_count();
+
+#ifdef BERTS_DEBUG
+    auto &cc = ggml_context_for_debug::from(ggml.ctx);
+    internal::ggml_size_info size = get_context_buffer_size_for_lm(input_token_count, output_token_count, hparams, cond);
+#endif
+
+    auto x = ggml_new_tensor_1d(ggml, GGML_TYPE_F32, hidden_states_count);
+    std::copy_n(hidden_states, hidden_states_count, (float*)x->data);
+
+    x = ggml_reshape_2d(ggml, x, hparams.hidden_dim, input_token_count);
+    ggml_set_name(x, "lm_in");
+    
+    x = bert_dense(ggml, x, weights.lm_dense_w, weights.lm_dense_b);
+    ggml_set_name(x, "lm_dense");
+
+    switch (hparams.hidden_act) {
+        using enum hidden_act;
+    case BERTS_HIDDEN_ACT_GELU:
+        x = ggml_gelu(ggml, x);
+        break;
+    case BERTS_HIDDEN_ACT_RELU:
+        x = ggml_relu(ggml, x);
+        break;
+    case BERTS_HIDDEN_ACT_SILU:
+        x = ggml_silu(ggml, x);
+        break;
+    case BERTS_HIDDEN_ACT_GELU_NEW:
+        // 0.5 * x * (1.0 + tanh(sqrt(2.0 / pi) * (x + 0.044715 * x^3)))
+        log::error("gelu_new is not implmented yet");
+        return false;
+    default:
+        log::error("unknown activation function");
+        return false;
+    }
+    ggml_set_name(x, "lm_act");
+
+    x = bert_layer_norm(ggml, x, weights.lm_ln_w, weights.lm_ln_b, hparams.eps);
+    ggml_set_name(x, "lm_ln");
+
+    GGML_ASSERT(x->ne[0] == hparams.hidden_dim);
+    GGML_ASSERT((size_t)x->ne[1] == input_token_count);
+
+    x = bert_dense(ggml, x, weights.lm_decoder_w, weights.lm_decoder_b);
+    ggml_set_name(x, "lm_dec");
+
+    GGML_ASSERT((size_t)x->ne[0] == output_token_count);
+    GGML_ASSERT((size_t)x->ne[1] == input_token_count);
+
+    // softmax
+    x = ggml_soft_max(ggml, x);
+    ggml_set_name(x, "lm_prob");
+
+    // sort
+    x = ggml_argsort(ggml, x, ggml_sort_order::GGML_SORT_DESC);
+    ggml_set_name(x, "lm_out");
+    
+#ifdef BERTS_DEBUG
+    cc.check(size.emb, "lm");
+#endif
+
+    return true;
+    (void)cond;
 }
 
 } // namespace berts::bert

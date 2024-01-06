@@ -82,20 +82,18 @@ test_def {
             assert(result);
             assert(out_size2 == tokens.size() * vocab_size);
             
-            std::unique_ptr<float[]> out2{new float[out_size2]};
+            std::unique_ptr<bert_token_t[]> out2{new bert_token_t[out_size2]};
             result = berts_eval_lm(ctx, out.get(), out_size, &cond2, out2.get(), &out_size2);
             assert(result);
 
             // 3. retrieve a token with the most value in mask position (index=6)
             //    the token should be `fashion`
             const size_t mask_index = 6;
-            const float *masked_values = out2.get() + mask_index * vocab_size;
-            const auto max_value = std::max_element(masked_values, masked_values + vocab_size);
-            const auto max_index = (bert_token_t)std::distance(masked_values, max_value);
+            const bert_token_t *masked_values = out2.get() + mask_index * vocab_size;
             
             size_t token_len = 256;
             std::string detected(token_len, '\0');
-            result = berts_id_to_token(ctx, max_index, detected.data(), &token_len);
+            result = berts_id_to_token(ctx, masked_values[0], detected.data(), &token_len);
             assert(result);
             detected.erase(token_len);
             assert(detected == "fashion");
@@ -122,31 +120,38 @@ test_def {
             size_t vocab_size = berts_vocab_size(ctx);
             assert(vocab_size != 0);
 
+            const size_t k = 3;
+            
             berts_eval_lm_info cond2{};
             berts_init_eval_lm_info(&cond2);
-            cond2.top_k = 3;
+            cond2.top_k = k;
             size_t out_size2 = 0;
             result = berts_eval_lm(ctx, out.get(), out_size, &cond2, nullptr, &out_size2);
             assert(result);
-            assert(out_size2 == tokens.size() * 3);
+            assert(out_size2 == tokens.size() * k);
             
-            std::unique_ptr<float[]> out2{new float[out_size2]};
+            std::unique_ptr<bert_token_t[]> out2{new bert_token_t[out_size2]};
             result = berts_eval_lm(ctx, out.get(), out_size, &cond2, out2.get(), &out_size2);
             assert(result);
 
             // 3. retrieve a token with the most value in mask position (index=6)
             //    the token should be `fashion`
             const size_t mask_index = 6;
-            const float *masked_values = out2.get() + mask_index * vocab_size;
-            const auto max_value = std::max_element(masked_values, masked_values + vocab_size);
-            const auto max_index = (bert_token_t)std::distance(masked_values, max_value);
+            const bert_token_t *masked_values = out2.get() + mask_index * k;
             
-            size_t token_len = 256;
-            std::string detected(token_len, '\0');
-            result = berts_id_to_token(ctx, max_index, detected.data(), &token_len);
-            assert(result);
-            detected.erase(token_len);
-            assert(detected == "fashion");
+            std::array<std::string, k> expected{{
+                "fashion",
+                "new",
+                "male",
+            }};
+            for (size_t i = 0; i < k; ++i) {
+                size_t token_len = 256;
+                std::string detected(token_len, '\0');
+                result = berts_id_to_token(ctx, masked_values[i], detected.data(), &token_len);
+                assert(result);
+                detected.erase(token_len);
+                assert(detected == expected[i]);
+            }
         };
     };
 };

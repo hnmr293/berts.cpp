@@ -510,6 +510,19 @@ model::get_context_buffer_size(size_t token_count,
     return size;
 }
 
+internal::ggml_size_info model::get_context_buffer_size_for_lm(
+    size_t input_token_count,
+    size_t output_token_count,
+    const internal::hparams &hparams,
+    const berts_eval_lm_info &cond) const {
+    ggml_size_info size{};
+    (void)input_token_count;
+    (void)output_token_count;
+    (void)hparams;
+    (void)cond;
+    return size;
+}
+
 bool model::build_graph(ggml_ctx &ggml,
                         const internal::hparams &hparams,
                         const berts_eval_info &cond,
@@ -693,6 +706,19 @@ RUN_COMPUTE:
 #endif
 
     return true;
+}
+
+bool model::build_lm_graph(ggml_ctx &ctx,
+                           const hparams &hparams,
+                           const berts_eval_lm_info &cond,
+                           const float *hidden_states,
+                           size_t hidden_states_count) const {
+    (void)ctx;
+    (void)hparams;
+    (void)cond;
+    (void)hidden_states;
+    (void)hidden_states_count;
+    return false;
 }
 
 } // namespace berts::roberta
