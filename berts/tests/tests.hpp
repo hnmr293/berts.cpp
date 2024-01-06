@@ -284,7 +284,7 @@ template <std::convertible_to<bool> T>
 inline void berts_assert_(T &&v, const char *expr, const char *testname, const char *testcasename, const char *file, const char *func, int lineno) {
     if (!v) {
         std::stringstream ss{};
-        ss << "assertion failed: expression = " << expr;
+        ss << "assertion failed: " << expr;
         throw __test_fail{ss.str(), testname, testcasename, file, func, lineno};
     }
 }
