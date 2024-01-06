@@ -119,11 +119,11 @@ bool vocab::init(berts_context *ctx, ggml_context *ggml, gguf_context *gguf) {
     auto unk_id = get_token_id(gguf, BERTS_KEY_TOKENIZER_UNK_ID, "[UNK]", "<unk>");
 
     log::when(BERTS_LOG_INFO, [=, this]() {
-        log::info("  cls_id:  {} ({})", cls_id, cls_token());
-        log::info("  mask_id: {} ({})", mask_id, mask_token());
-        log::info("  pad_id:  {} ({})", pad_id, pad_token());
-        log::info("  sep_id:  {} ({})", sep_id, sep_token());
-        log::info("  unk_id:  {} ({})", unk_id, unk_token());
+        log::info("  cls_id:  {} ({})", cls_id, id_to_token(cls_id));
+        log::info("  mask_id: {} ({})", mask_id, id_to_token(mask_id));
+        log::info("  pad_id:  {} ({})", pad_id, id_to_token(pad_id));
+        log::info("  sep_id:  {} ({})", sep_id, id_to_token(sep_id));
+        log::info("  unk_id:  {} ({})", unk_id, id_to_token(unk_id));
     });
 
     if (cls_id == BERTS_INVALID_TOKEN_ID ||
