@@ -49,7 +49,8 @@ TESTS = \
 	test_bert \
 	test_roberta_tokenizer \
 	test_bpe \
-	test_roberta
+	test_roberta \
+	test_fillmask
 
 BUILD_TARGET += $(addsuffix $(EXE_EXT),$(EXAMPLES))
 BUILD_TARGET += $(addsuffix _d$(EXE_EXT),$(EXAMPLES))
@@ -267,4 +268,10 @@ test_roberta$(EXE_EXT):     tests/test_roberta.cpp $(COMMON_HEADERS) $(STATIC_LI
 	$(CXX) $(CXXFLAGS) $(filter-out %.h %.hpp,$^) $(STAITC_LIB_GGML)   -o $@ $(LDFLAGS)
 
 test_roberta_d$(EXE_EXT):   tests/test_roberta.cpp $(COMMON_HEADERS) $(STATIC_LIB)
+	$(CXX) $(CXXFLAGS) $(filter-out %.h %.hpp,$^) $(STAITC_LIB_GGML_D) -o $@ $(LDFLAGS)
+
+test_fillmask$(EXE_EXT):   tests/test_fillmask.cpp $(COMMON_HEADERS) $(STATIC_LIB)
+	$(CXX) $(CXXFLAGS) $(filter-out %.h %.hpp,$^) $(STAITC_LIB_GGML)   -o $@ $(LDFLAGS)
+
+test_fillmask_d$(EXE_EXT): tests/test_fillmask.cpp $(COMMON_HEADERS) $(STATIC_LIB)
 	$(CXX) $(CXXFLAGS) $(filter-out %.h %.hpp,$^) $(STAITC_LIB_GGML_D) -o $@ $(LDFLAGS)
