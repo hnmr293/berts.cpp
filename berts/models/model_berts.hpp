@@ -103,7 +103,7 @@ struct model_berts : public model_base<VocabType, WeightsType> {
         out_count = needed_out_count;
 
         if (!out) {
-            log::info("finish evaluating BERT (dry run)");
+            log::info("finish evaluating {} (dry run)", model_name());
             return true;
         }
 
