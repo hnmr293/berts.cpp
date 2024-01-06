@@ -634,8 +634,8 @@ bool model::build_graph(ggml_ctx &ggml,
                 res = ggml_gelu(ggml, res);
                 break;
             default:
-                GGML_ASSERT(false && "unknown activation function");
-                // unreachable
+                log::error("unknown activation function");
+                return false;
             }
 
             // *** BertOutput
