@@ -235,6 +235,7 @@ BERTS_API bool berts_eval_lm(berts_context *ctx,
                              size_t hidden_states_count,
                              const berts_eval_lm_info *cond,
                              bert_token_t *out,
+                             float *out_probs,
                              size_t *out_count);
 
 //

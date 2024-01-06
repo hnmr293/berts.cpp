@@ -77,12 +77,13 @@ test_def {
             berts_eval_lm_info cond2{};
             berts_init_eval_lm_info(&cond2);
             size_t out_size2 = 0;
-            result = berts_eval_lm(ctx, out.get(), out_size, &cond2, nullptr, &out_size2);
+            result = berts_eval_lm(ctx, out.get(), out_size, &cond2, nullptr, nullptr, &out_size2);
             assert(result);
             assert(out_size2 == tokens.size() * vocab_size);
 
             std::unique_ptr<bert_token_t[]> out2{new bert_token_t[out_size2]};
-            result = berts_eval_lm(ctx, out.get(), out_size, &cond2, out2.get(), &out_size2);
+            std::unique_ptr<float[]> out2_probs{new float[out_size2]};
+            result = berts_eval_lm(ctx, out.get(), out_size, &cond2, out2.get(), out2_probs.get(), &out_size2);
             assert(result);
 
             // 3. retrieve a token with the most value in mask position (index=6)
@@ -125,12 +126,13 @@ test_def {
             berts_init_eval_lm_info(&cond2);
             cond2.top_k = k;
             size_t out_size2 = 0;
-            result = berts_eval_lm(ctx, out.get(), out_size, &cond2, nullptr, &out_size2);
+            result = berts_eval_lm(ctx, out.get(), out_size, &cond2, nullptr, nullptr, &out_size2);
             assert(result);
             assert(out_size2 == tokens.size() * k);
 
             std::unique_ptr<bert_token_t[]> out2{new bert_token_t[out_size2]};
-            result = berts_eval_lm(ctx, out.get(), out_size, &cond2, out2.get(), &out_size2);
+            std::unique_ptr<float[]> out2_probs{new float[out_size2]};
+            result = berts_eval_lm(ctx, out.get(), out_size, &cond2, out2.get(), out2_probs.get(), &out_size2);
             assert(result);
 
             // 3. retrieve a token with the most value in mask position (index=6)

@@ -255,6 +255,7 @@ bool berts_eval_lm(berts_context *ctx,
                    size_t hidden_states_count,
                    const berts_eval_lm_info *cond,
                    bert_token_t *out,
+                   float *out_probs,
                    size_t *out_count) {
     BERTS_CHECK_MODEL_OR(false);
 
@@ -266,7 +267,7 @@ bool berts_eval_lm(berts_context *ctx,
         return false;
     }
 
-    return model.eval_lm(ctx, hidden_states, hidden_states_count, *cond, out, *out_count);
+    return model.eval_lm(ctx, hidden_states, hidden_states_count, *cond, out, out_probs, *out_count);
 }
 
 namespace berts {

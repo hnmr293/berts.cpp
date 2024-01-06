@@ -207,6 +207,7 @@ struct model_berts : public model_base<VocabType, WeightsType> {
                  size_t hidden_states_count,
                  const berts_eval_lm_info &cond,
                  bert_token_t *out,
+                 float *out_probs,
                  size_t &out_count) const override {
         log::info("start LM {}", model_name());
 
@@ -249,9 +250,14 @@ struct model_berts : public model_base<VocabType, WeightsType> {
 
         out_count = needed_out_count;
 
-        if (!out) {
-            log::info("finish lm {} (dry run)", model_name());
+        if (!out && !out_probs) {
+            log::info("finish LM {} (dry run)", model_name());
             return true;
+        }
+
+        if (!out || !out_probs) {
+            log::error("output buffer is not specified");
+            return false;
         }
 
         ggml_size_info size = get_context_buffer_size_for_lm(
@@ -275,7 +281,8 @@ struct model_berts : public model_base<VocabType, WeightsType> {
         // run the computation
         ggml_cgraph *gf = ggml_new_graph(ggml); // allocated in ggml_context
         ggml_tensor *x = ggml_get_tensor(ggml, "lm_out");
-        if (!x) {
+        ggml_tensor *p = ggml_get_tensor(ggml, "lm_prob");
+        if (!x || !p) {
             log::error("output tensor is not found");
             return false;
         }
@@ -307,17 +314,34 @@ struct model_berts : public model_base<VocabType, WeightsType> {
 
         static_assert(sizeof(decltype(*out)) == sizeof(bert_token_t));
         static_assert(sizeof(bert_token_t) == sizeof(int32_t));
-        
+
         if (cond.top_k <= 0) {
-            bert_token_t *data = (bert_token_t*)ggml_get_data(x);
-            size_t count = std::min(input_out_count, needed_out_count);
-            std::copy(data, data + count, out);
+            if (out) {
+                bert_token_t *data = (bert_token_t *)ggml_get_data(x);
+                size_t count = std::min(input_out_count, needed_out_count);
+                std::copy(data, data + count, out);
+            }
+            if (out_probs) {
+                float *data = ggml_get_data_f32(p);
+                size_t count = std::min(input_out_count, needed_out_count);
+                std::copy(data, data + count, out_probs);
+            }
         } else {
-            const auto k = cond.top_k;
-            bert_token_t *data = (bert_token_t*)ggml_get_data(x);
-            for (size_t token_index = 0; token_index < input_tokens; ++token_index) {
-                bert_token_t *p0 = data + token_index * max_tokens;
-                std::copy(p0, p0 + k, &out[token_index * k]);
+            if (out) {
+                const auto k = cond.top_k;
+                bert_token_t *data = (bert_token_t *)ggml_get_data(x);
+                for (size_t token_index = 0; token_index < input_tokens; ++token_index) {
+                    bert_token_t *p0 = data + token_index * max_tokens;
+                    std::copy(p0, p0 + k, &out[token_index * k]);
+                }
+            }
+            if (out_probs) {
+                const auto k = cond.top_k;
+                float *data = ggml_get_data_f32(p);
+                for (size_t token_index = 0; token_index < input_tokens; ++token_index) {
+                    float *p0 = data + token_index * max_tokens;
+                    std::copy(p0, p0 + k, &out_probs[token_index * k]);
+                }
             }
         }
 
