@@ -143,6 +143,11 @@ bert_token_t berts_token_to_id(const berts_context *ctx, const char *token) {
     return model.token_to_id(token);
 }
 
+size_t berts_vocab_size(const berts_context *ctx) {
+    BERTS_CHECK_MODEL_OR(0);
+    return model.vocab_count();
+}
+
 bool berts_tokenize(const berts_context *ctx,
                     const char *text,
                     bert_token_t *out,

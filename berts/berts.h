@@ -120,6 +120,8 @@ BERTS_API bert_token_t berts_token_to_id(const berts_context *ctx,
                                          const char *token // null-terminated
 );
 
+BERTS_API size_t berts_vocab_size(const berts_context *ctx);
+
 BERTS_API bool berts_tokenize(const berts_context *ctx,
                               const char *text,
                               bert_token_t *out,

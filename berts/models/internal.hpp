@@ -74,6 +74,8 @@ struct model {
 
     virtual bert_token_t eos_id() const noexcept = 0;
 
+    virtual size_t vocab_count() const noexcept = 0;
+
     virtual bool tokenize(const berts_context *ctx,
                           const std::string &text,
                           std::vector<bert_token_t> &out) const = 0;

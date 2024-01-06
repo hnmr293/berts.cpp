@@ -27,6 +27,7 @@ concept Vocab = requires(T &obj, berts_context *ctx, ggml_context *ggml, gguf_co
     { obj.bos_id() } -> std::convertible_to<bert_token_t>;
     { obj.eos_id() } -> std::convertible_to<bert_token_t>;
 
+    { obj.token_count() } -> std::convertible_to<size_t>;
     { obj.id_to_token(bert_token_t{}) } -> std::convertible_to<std::string>;
     { obj.token_to_id(str) } -> std::convertible_to<bert_token_t>;
 
@@ -121,6 +122,10 @@ struct vocab_base2 : public vocab_base<vocab_base2<Self>> {
 
     vocab_base2() = default;
 
+    size_t token_count() const noexcept {
+        return id_to_token_.size();
+    }
+    
     std::string id_to_token(bert_token_t token_id) const noexcept {
         if (id_to_token_.size() <= token_id) {
             log::error("token id {} is not found (max={})", token_id, id_to_token_.size());
@@ -317,6 +322,10 @@ struct model_base : public model {
 
     bert_token_t eos_id() const noexcept override {
         return vocab->eos_id();
+    }
+
+    size_t vocab_count() const noexcept override {
+        return vocab->token_count();
     }
 
     virtual bool tokenize(const berts_context *ctx,
