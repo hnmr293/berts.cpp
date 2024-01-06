@@ -64,8 +64,8 @@ dev/berts.cpp $ BERTS_DEBUG=1 BERTS_ICU_INCLUDE='C:/Program Files (x86)/Windows 
 
 ## TODO
 
-- tokenizers: BertJapaneseTokenizer, DebertaV2Tokenizer, RoBERTaTokenizer (bpe)
-- model: RoBERTa, DeBERTa, DeBERTa-v2
+- tokenizers: BertJapaneseTokenizer, DebertaV2Tokenizer
+- model: DeBERTa, DeBERTa-v2
 - pooler's act fn (for deberta)
 - GPU
 - batching (attn mask)

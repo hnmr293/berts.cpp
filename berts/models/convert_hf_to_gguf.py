@@ -50,21 +50,24 @@ def parse_args():
     args = ap.parse_args()
     return args
 
-def load_diffusers(repo_id: str, cache_dir: str|None) -> tuple[PreTrainedTokenizer, PreTrainedModel, Module]:
+def load_diffusers(repo_id: str, cache_dir: str|None) -> tuple[str, PreTrainedTokenizer, PreTrainedModel, Module]:
     tokenizer = AutoTokenizer.from_pretrained(repo_id, cache_dir=cache_dir, use_fast=False)
     model = AutoModel.from_pretrained(repo_id, cache_dir=cache_dir)
     lm = AutoModelForMaskedLM.from_pretrained(repo_id, cache_dir=cache_dir)
     
     if isinstance(lm, BertForMaskedLM):
+        type = 'BERT'
         lm = lm.cls
     elif isinstance(lm, RobertaForMaskedLM):
+        type = 'RoBERTa'
         lm = lm.lm_head
     elif isinstance(lm, DebertaForMaskedLM):
+        type = 'DeBERTa'
         lm = lm.cls
     else:
         raise ValueError(f'unsupported class: {model.__class__.__name__}')
 
-    return tokenizer, model, lm
+    return type, tokenizer, model, lm
 
 def write_bert(w: gguf.GGUFWriter, tokenizer: BertTokenizer, model: BertModel, K: dict[str, str]):
     config: BertConfig = model.config
@@ -346,7 +349,7 @@ def write_merge(w: gguf.GGUFWriter, vocab: dict[str, int], merges: dict[tuple[st
 def convert(repo_id: str, cache_dir: str|None, output_path: str):
     print('start quantization')
     
-    tokenizer, model, lm = load_diffusers(repo_id, cache_dir)
+    type, tokenizer, model, lm = load_diffusers(repo_id, cache_dir)
 
     print(f'model loaded: {repo_id}')
     
@@ -389,11 +392,7 @@ def convert(repo_id: str, cache_dir: str|None, output_path: str):
     total_size_org = 0
     total_size_new = 0
 
-    skip_keys = set([
-        'predictions.bias',
-    ])
-    
-    for key, tensor in (model.state_dict() | lm.state_dict()).items():
+    for key, tensor in model.state_dict().items():
         tensor: np.ndarray = tensor.squeeze().cpu().numpy()
         n_dims = tensor.ndim
         size_org = tensor.nbytes
@@ -413,7 +412,54 @@ def convert(repo_id: str, cache_dir: str|None, output_path: str):
         total_size_org += size_org
         total_size_new += size_new
 
-        if key in skip_keys:
+        w.add_tensor('berts.bert.' + key, tensor)
+
+        print(f'''
+{key}:
+  quantized = {q}
+  n_dims = {n_dims}
+  size = {size_org/1024:.1f} KiB -> {size_new/1024:.1f} KiB
+'''.strip())
+    
+    
+    lm_skip_keys = set([
+        'predictions.bias',
+    ])
+
+    RoBERTa_to_BERT = {
+        'bias': 'predictions.bias',
+        'dense.weight': 'predictions.transform.dense.weight',
+        'dense.bias': 'predictions.transform.dense.bias',
+        'layer_norm.weight': 'predictions.transform.LayerNorm.weight',
+        'layer_norm.bias': 'predictions.transform.LayerNorm.bias',
+        'decoder.weight': 'predictions.decoder.weight',
+        'decoder.bias': 'predictions.decoder.bias',
+    }
+    
+    for key, tensor in lm.state_dict().items():
+        tensor: np.ndarray = tensor.squeeze().cpu().numpy()
+        n_dims = tensor.ndim
+        size_org = tensor.nbytes
+        
+        q = False
+        if ftype != 0 and n_dims == 2:
+            if key[-7:] == '.weight':
+                q = True
+        
+        if q:
+            tensor = tensor.astype(np.float16)
+        else:
+            tensor = tensor.astype(np.float32)
+        
+        size_new = tensor.nbytes
+
+        total_size_org += size_org
+        total_size_new += size_new
+
+        if type == 'RoBERTa':
+            key = RoBERTa_to_BERT.get(key, key)
+        
+        if key in lm_skip_keys:
             continue
 
         w.add_tensor('berts.bert.' + key, tensor)

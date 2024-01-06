@@ -32,6 +32,18 @@ struct vocab : public internal::vocab_base2<vocab> {
     bert_token_t bos_id() const noexcept;
     bert_token_t eos_id() const noexcept;
 
+    std::string id_to_token(bert_token_t token_id) const noexcept;
+    
+    bert_token_t token_to_id(const std::string &token) const noexcept;
+
+    std::string id_to_token_internal(bert_token_t token_id) const noexcept {
+        return inherited::id_to_token(token_id);
+    }
+    
+    bert_token_t token_to_id_internal(const std::string &token) const noexcept {
+        return inherited::token_to_id(token);
+    }
+
     bool init(berts_context *ctx, ggml_context *ggml, gguf_context *gguf);
 };
 
