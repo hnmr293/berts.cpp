@@ -75,7 +75,7 @@ static void show_usage(const char *exe) {
 }
 
 int main(int argc, char **argv) {
-    std::cout << berts_version() << std::endl;
+    std::cerr << "* berts.cpp v" << berts_version() << " quant" << std::endl;
 
     berts_set_log_level(BERTS_LOG_ALL);
 
