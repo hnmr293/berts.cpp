@@ -180,5 +180,7 @@ int main(int argc, char **argv) {
         std::cout << index << ": " << token << " (" << id << "); p = " << score << std::endl;
     }
 
+    berts_free(ctx);
+
     return 0;
 }
