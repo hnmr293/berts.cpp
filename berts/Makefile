@@ -39,7 +39,8 @@ BUILD_TARGET = \
 	$(DYNAMIC_LIB)
 
 EXAMPLES = \
-	quant
+	quant \
+	fill_mask
 
 TESTS = \
 	test_bert_tokenizer \
@@ -217,6 +218,12 @@ quant$(EXE_EXT):   examples/quant.cpp $(COMMON_HEADERS) $(STATIC_LIB)
 	$(CXX) $(CXXFLAGS) $(filter-out %.h %.hpp,$^) $(STAITC_LIB_GGML)   -o $@ $(LDFLAGS)
 
 quant_d$(EXE_EXT): examples/quant.cpp $(COMMON_HEADERS) $(STATIC_LIB)
+	$(CXX) $(CXXFLAGS) $(filter-out %.h %.hpp,$^) $(STAITC_LIB_GGML_D) -o $@ $(LDFLAGS)
+
+fill_mask$(EXE_EXT):   examples/fill_mask.cpp $(COMMON_HEADERS) $(STATIC_LIB)
+	$(CXX) $(CXXFLAGS) $(filter-out %.h %.hpp,$^) $(STAITC_LIB_GGML)   -o $@ $(LDFLAGS)
+
+fill_mask_d$(EXE_EXT): examples/fill_mask.cpp $(COMMON_HEADERS) $(STATIC_LIB)
 	$(CXX) $(CXXFLAGS) $(filter-out %.h %.hpp,$^) $(STAITC_LIB_GGML_D) -o $@ $(LDFLAGS)
 
 #
