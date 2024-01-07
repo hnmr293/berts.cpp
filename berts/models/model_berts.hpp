@@ -1,5 +1,6 @@
 #pragma once
 
+#include <algorithm>
 #include "berts/models/model_base.hpp"
 
 namespace berts::internal {
@@ -194,7 +195,7 @@ struct model_berts : public model_base<VocabType, WeightsType> {
         {
             float *data = ggml_get_data_f32(x);
             size_t count = std::min(input_out_count, needed_out_count);
-            std::copy(data, data + count, out);
+            std::copy_n(data, count, out);
         }
 
         log::info("finish evaluating {}", model_name());
@@ -316,31 +317,26 @@ struct model_berts : public model_base<VocabType, WeightsType> {
         static_assert(sizeof(bert_token_t) == sizeof(int32_t));
 
         if (cond.top_k <= 0) {
-            if (out) {
-                bert_token_t *data = (bert_token_t *)ggml_get_data(x);
-                size_t count = std::min(input_out_count, needed_out_count);
-                std::copy(data, data + count, out);
-            }
-            if (out_probs) {
-                float *data = ggml_get_data_f32(p);
-                size_t count = std::min(input_out_count, needed_out_count);
-                std::copy(data, data + count, out_probs);
-            }
+            size_t count = std::min(input_out_count, needed_out_count);
+
+            bert_token_t *ids = (bert_token_t *)ggml_get_data(x);
+            std::copy_n(ids, count, out);
+
+            float *probs = ggml_get_data_f32(p);
+            std::copy_n(probs, count, out_probs);
         } else {
-            if (out) {
-                const auto k = cond.top_k;
-                bert_token_t *data = (bert_token_t *)ggml_get_data(x);
-                for (size_t token_index = 0; token_index < input_tokens; ++token_index) {
-                    bert_token_t *p0 = data + token_index * max_tokens;
-                    std::copy(p0, p0 + k, &out[token_index * k]);
-                }
-            }
-            if (out_probs) {
-                const auto k = cond.top_k;
-                float *data = ggml_get_data_f32(p);
-                for (size_t token_index = 0; token_index < input_tokens; ++token_index) {
-                    float *p0 = data + token_index * max_tokens;
-                    std::copy(p0, p0 + k, &out_probs[token_index * k]);
+            const bert_int k = cond.top_k;
+
+            bert_token_t *ids0 = (bert_token_t *)ggml_get_data(x);
+            float *probs0 = ggml_get_data_f32(p);
+            for (size_t token_index = 0; token_index < input_tokens; ++token_index) {
+                bert_token_t *ids = ids0 + token_index * max_tokens;
+                std::copy_n(ids, k, &out[token_index * k]);
+
+                float *probs = probs0 + token_index * max_tokens;
+                for (bert_int i = 0; i < k; ++i) {
+                    bert_token_t id = ids[i];
+                    out_probs[token_index * k + i] = probs[id];
                 }
             }
         }
